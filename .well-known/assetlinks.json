@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.driftapp.twa",
+        "sha256_cert_fingerprints": ["6C:E0:E9:AD:E8:5F:A7:BB:AF:9D:5C:59:BC:39:1D:14:66:4C:76:1E:78:A0:23:B2:0A:85:E1:E0:16:7D:8F:42"]
+      }
+    }]

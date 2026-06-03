@@ -100,6 +100,10 @@ def flag_card():
 def manifest():
     return send_from_directory('.', 'manifest.json')
 
+@app.route('/.well-known/assetlinks.json')
+def assetlinks():
+    return send_from_directory('.well-known', 'assetlinks.json')
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     return send_from_directory('static', filename)
