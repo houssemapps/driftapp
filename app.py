@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
+import os
 import sqlite3
 from datetime import datetime
 
@@ -94,6 +95,14 @@ def flag_card():
     data = request.get_json() or {}
     print(f'⚑  flagged card: {data}')
     return jsonify({'ok': True})
+
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('.', 'manifest.json')
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
 
 # ─── START ───────────────────────────────────────────────────────────────────
 

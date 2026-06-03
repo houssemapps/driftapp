@@ -1,0 +1,22 @@
+{
+  "name": "Drift",
+  "short_name": "Drift",
+  "description": "earth's mind · right now",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030318",
+  "theme_color": "#030318",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
