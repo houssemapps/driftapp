@@ -106,11 +106,11 @@ def static_files(filename):
 
 # ─── START ───────────────────────────────────────────────────────────────────
 
+init_db()              # ← now runs always, gunicorn OR python
+
 if __name__ == '__main__':
-    init_db()
     print('─' * 40)
     print('✦ drift is running')
-    print('✦ open this in your browser:')
     print('✦ http://localhost:5000')
     print('─' * 40)
     app.run(debug=True, port=5000)
