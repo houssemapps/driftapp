@@ -1,0 +1,4 @@
+drift.db
+__pycache__/
+*.pyc
+.env

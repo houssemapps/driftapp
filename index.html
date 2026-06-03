@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Drift</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  width:100vw;height:100vh;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 40%,#060618 0%,#010108 70%,#000003 100%);
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+#canvas{position:absolute;inset:0;pointer-events:none;z-index:1}
+#space{position:absolute;inset:0;z-index:2;overflow:hidden;touch-action:none;cursor:grab}
+#space.drag{cursor:grabbing}
+.card{
+  position:absolute;top:0;left:0;
+  transform-origin:top left;
+  width:185px;border-radius:14px;
+  padding:10px 12px 9px;
+  background:rgba(5,8,25,0.88);
+  border:1px solid rgba(70,100,255,0.18);
+  box-shadow:0 0 18px rgba(40,70,255,0.07),0 2px 12px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.04);
+  user-select:none;will-change:transform,opacity;cursor:pointer;
+}
+.crow{display:flex;align-items:center;gap:5px;margin-bottom:6px}
+.cflag{font-size:14px}
+.cid{font-size:9px;font-family:monospace;letter-spacing:1.5px;color:rgba(90,118,255,0.4)}
+.ctxt{font-size:12.5px;color:rgba(210,222,255,0.88);line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cdots{font-size:10px;color:rgba(90,118,255,0.3);margin-top:2px;letter-spacing:2px}
+.cfoot{margin-top:7px;display:flex;gap:10px;font-size:9.5px;color:rgba(80,112,255,0.28)}
+#ov{
+  display:none;position:fixed;inset:0;z-index:50;
+  background:rgba(0,0,8,0.74);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+}
+#ov.on{display:block}
+#exp{
+  display:none;position:fixed;z-index:100;
+  width:min(305px,90vw);
+  background:rgba(5,8,24,0.98);
+  border:1px solid rgba(90,130,255,0.38);
+  border-radius:18px;
+  box-shadow:0 0 90px rgba(50,85,255,0.2),0 14px 55px rgba(0,0,0,0.85),inset 0 1px 0 rgba(255,255,255,0.05);
+  opacity:0;transform:scale(0.86);
+  transition:opacity .38s ease,transform .42s cubic-bezier(.16,1,.3,1);
+}
+#exp.on{display:block}
+#exp.show{opacity:1;transform:scale(1)}
+.eh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;
+  border-bottom:1px solid rgba(70,100,255,0.1)}
+.emeta{display:flex;align-items:center;gap:6px}
+.eflag{font-size:18px}.eid{font-size:9px;font-family:monospace;letter-spacing:1.5px;color:rgba(90,118,255,0.44)}
+.ex{font-size:15px;color:rgba(100,130,255,0.36);cursor:pointer;padding:2px 6px}
+.ebody{padding:12px 16px;max-height:130px;overflow-y:auto;
+  font-size:13.5px;color:rgba(215,225,255,0.9);line-height:1.68}
+.eacts{display:flex;gap:8px;align-items:center;padding:10px 16px;
+  border-top:1px solid rgba(70,100,255,0.1)}
+.abtn{display:flex;align-items:center;gap:4px;border-radius:18px;padding:6px 12px;
+  font-size:12px;cursor:pointer;border:1px solid rgba(70,100,255,0.18);
+  background:rgba(70,100,255,0.07);color:rgba(135,158,255,0.48);font-family:inherit}
+.abtn.liked{background:rgba(255,60,100,0.14);border-color:rgba(255,70,110,0.38);color:rgba(255,90,130,0.95)}
+.abtn.saved{background:rgba(255,195,50,0.12);border-color:rgba(255,200,55,0.38);color:rgba(255,206,68,0.95)}
+.csec{border-top:1px solid rgba(70,100,255,0.1)}
+.clist{max-height:115px;overflow-y:auto;padding:8px 16px}
+.citem{display:flex;gap:7px;padding:6px 0;border-bottom:1px solid rgba(70,100,255,0.06)}
+.citem:last-child{border-bottom:none}
+.citflag{font-size:12px;flex-shrink:0;margin-top:1px}
+.cittxt{font-size:11.5px;color:rgba(200,215,255,0.72);line-height:1.5}
+.cempty{padding:10px 16px;font-size:11px;color:rgba(90,118,255,0.28);text-align:center}
+.cbar{display:flex;gap:8px;align-items:center;padding:10px 16px 14px}
+.cin{flex:1;background:rgba(4,7,22,0.9);border:1px solid rgba(70,100,255,0.15);
+  border-radius:18px;padding:8px 14px;font-size:12px;color:rgba(210,222,255,0.9);
+  outline:none;font-family:inherit}
+.cin::placeholder{color:rgba(90,118,255,0.26)}
+.csend{background:rgba(50,75,255,0.18);border:1px solid rgba(70,100,255,0.26);
+  border-radius:50%;width:32px;height:32px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(130,155,255,0.7);font-size:16px;cursor:pointer}
+#hdr{
+  position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none;
+  padding:18px 18px 34px;
+  background:linear-gradient(to bottom,rgba(0,0,5,.94),transparent);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.hl{font-size:9px;letter-spacing:5.5px;text-transform:uppercase;color:rgba(108,138,255,.42);margin-bottom:3px}
+.hs{font-size:10px;color:rgba(88,118,255,.26);letter-spacing:.8px}
+.hli{display:flex;align-items:center;gap:5px;font-size:10px;color:rgba(108,138,255,.35)}
+.hdot{width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 7px rgba(74,222,128,.9);display:inline-block}
+#bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:60;
+  padding:16px 14px 24px;
+  background:linear-gradient(to top,rgba(0,0,5,.97) 0%,rgba(0,0,5,.5) 65%,transparent);
+  display:flex;gap:8px;align-items:center;
+}
+#tin{flex:1;background:rgba(4,7,22,.92);border:1px solid rgba(70,100,255,.15);
+  border-radius:22px;padding:11px 16px;font-size:12px;color:rgba(210,222,255,.9);
+  outline:none;font-family:inherit}
+#tin::placeholder{color:rgba(98,130,255,.28)}
+#tin:focus{border-color:rgba(70,100,255,.38)}
+#dbt{background:rgba(45,65,255,.15);border:1px solid rgba(70,100,255,.25);
+  border-radius:22px;padding:11px 14px;font-size:12px;
+  color:rgba(128,154,255,.68);cursor:pointer;white-space:nowrap;font-family:inherit}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="space"></div>
+<div id="ov"></div>
+
+<div id="exp">
+  <div class="eh">
+    <div class="emeta"><span class="eflag" id="ef"></span><span class="eid" id="eid"></span></div>
+    <span class="ex" id="exc">✕</span>
+  </div>
+  <div class="ebody" id="etxt"></div>
+  <div class="eacts">
+    <button class="abtn" id="elk">♡ 0</button>
+    <button class="abtn" id="ecm">💬 0</button>
+    <button class="abtn" style="margin-left:auto">echo ✦</button>
+  </div>
+  <div class="csec">
+    <div class="clist" id="clist"></div>
+    <div class="cbar">
+      <input class="cin" id="cin" placeholder="add a comment…" maxlength="160"/>
+      <button class="csend" id="csend">›</button>
+    </div>
+  </div>
+</div>
+
+<div id="hdr">
+  <div><div class="hl">✦ &nbsp;drift</div><div class="hs">earth's mind · right now</div></div>
+  <div class="hli"><span class="hdot"></span>3 241 drifting</div>
+</div>
+<div id="bar">
+  <input id="tin" type="text" placeholder="what's on your mind…" maxlength="220"/>
+  <button id="dbt">✦ drift</button>
+</div>
+
+<script>
+const vw=()=>window.innerWidth, vh=()=>window.innerHeight;
+
+// Canvas is 2400×2100 — compact for noticeable toroidal loop
+const WW=2400, WH=2100, CW=185;
+
+const BASE=[
+  // ── ORIGINAL 15 ──────────────────────────────────────────────────────────────
+  {flag:"🇦🇷",id:"1809",text:"anyone here? I can't sleep. 3am and the city is quiet but my brain won't stop running.",likes:34,comments:[{flag:"🇺🇸",text:"3am is the loudest hour, you're not alone"},{flag:"🇯🇵",text:"i feel this every single night"}]},
+  {flag:"🇺🇸",id:"2241",text:"3am and my mind won't stop. lying here for 2 hours thinking about everything I said wrong today.",likes:67,comments:[{flag:"🇩🇿",text:"overthinking at night is its own kind of torture"}]},
+  {flag:"🇯🇵",id:"0847",text:"i feel like a stranger here. surrounded by people i grew up with. is this normal?",likes:21,comments:[]},
+  {flag:"🇩🇿",id:"3301",text:"i built something today. small thing. proof i'm still moving even when it doesn't show.",likes:45,comments:[{flag:"🇧🇷",text:"this is the energy ✦"},{flag:"🇰🇷",text:"keep going"}]},
+  {flag:"🇧🇷",id:"1122",text:"nobody knows the real me. the version they see is edited. what if i showed the raw one.",likes:89,comments:[]},
+  {flag:"🇨🇳",id:"4401",text:"i miss who i used to be. not the life, just the version of me that believed things work out.",likes:112,comments:[{flag:"🇫🇷",text:"that version is still in there"}]},
+  {flag:"🇬🇧",id:"0033",text:"why is silence so loud. turned everything off and now all i hear is what i've been avoiding.",likes:28,comments:[]},
+  {flag:"🇮🇳",id:"2987",text:"chasing something i can't name. not money not fame. something that feels like it matters.",likes:53,comments:[{flag:"🇩🇪",text:"i think the looking is the point"}]},
+  {flag:"🇩🇪",id:"1567",text:"some days feel borrowed. like i'm in someone else's timeline and my real life is still buffering.",likes:17,comments:[]},
+  {flag:"🇰🇷",id:"0921",text:"still waiting for something. a sign a shift. maybe i am the sign i've been waiting for.",likes:76,comments:[{flag:"🇸🇦",text:"you are the sign. trust it."}]},
+  {flag:"🇫🇷",id:"3344",text:"do you ever feel invisible. not lonely. just like you could disappear and the world keeps moving fine.",likes:41,comments:[]},
+  {flag:"🇲🇽",id:"1100",text:"i laughed today, finally. real laugh. the kind that makes your stomach hurt. forgot what that felt like.",likes:94,comments:[{flag:"🇦🇷",text:"this made me smile ♡"}]},
+  {flag:"🇹🇷",id:"5512",text:"my family doesn't know the life i live in my head. real conversations only when everyone's asleep.",likes:38,comments:[]},
+  {flag:"🇿🇦",id:"7731",text:"i keep starting things and not finishing. not lazy. scared of what finishing actually means.",likes:62,comments:[{flag:"🇺🇸",text:"finishing means it can be judged. i understand."}]},
+  {flag:"🇸🇦",id:"9902",text:"sometimes i just need someone to tell me i'm doing okay. not great. just okay is enough tonight.",likes:55,comments:[{flag:"🇯🇵",text:"you're doing okay ♡"},{flag:"🇩🇿",text:"more than okay, believe it"}]},
+  // ── MIDNIGHT CONFESSIONS ──────────────────────────────────────────────────────
+  {flag:"🇮🇩",id:"4421",text:"blocked him. still open his profile from a different account every night. this is not healing.",likes:143,comments:[{flag:"🇧🇷",text:"we've all been there. the pull is real."},{flag:"🇺🇸",text:"that alternate account deserves a medal and therapy"}]},
+  {flag:"🇳🇬",id:"3317",text:"told everyone i was fine and cried in the parking lot for 25 minutes before driving home.",likes:88,comments:[{flag:"🇫🇷",text:"the parking lot is the real therapy space"},{flag:"🇮🇳",text:"this hit me somewhere real"}]},
+  {flag:"🇪🇸",id:"2208",text:"consciousness is just the universe staring at itself and wondering why it did that.",likes:77,comments:[{flag:"🇯🇵",text:"rocks have it figured out honestly"}]},
+  {flag:"🇵🇹",id:"1134",text:"i've been 'almost there' for 3 years. at what point do i admit almost is where i live now.",likes:201,comments:[{flag:"🇩🇿",text:"almost is momentum. don't stop."},{flag:"🇰🇷",text:"'almost there' means you're still moving"}]},
+  {flag:"🇨🇦",id:"7788",text:"hustle culture was invented by people who had no personality and mistook output for identity.",likes:445,comments:[{flag:"🇺🇸",text:"real. the grind is the void."},{flag:"🇬🇧",text:"sending this to my boss"},{flag:"🇧🇷",text:"💀💀"}]},
+  {flag:"🇦🇺",id:"9943",text:"therapist asked me to describe my support system. i said 'i have a really good playlist'.",likes:671,comments:[{flag:"🇩🇪",text:"the playlist understands me better than most humans"},{flag:"🇫🇷",text:"lmaooo but also 😭"}]},
+  {flag:"🇳🇱",id:"5587",text:"the version of me that exists in other people's memories is a stranger i don't recognize.",likes:93,comments:[]},
+  {flag:"🇵🇱",id:"4412",text:"i've optimized my sadness. it runs in the background now. very efficient. barely notice it.",likes:388,comments:[{flag:"🇺🇸",text:"background process sadness is the real adult experience"},{flag:"🇮🇳",text:"this is disturbingly relatable"}]},
+  {flag:"🇸🇪",id:"3398",text:"why does every motivational quote feel like it was written by someone who never actually struggled.",likes:529,comments:[{flag:"🇦🇷",text:"because it probably was"},{flag:"🇨🇳",text:"'just believe' said the person with a trust fund"}]},
+  {flag:"🇨🇭",id:"8821",text:"she loved me more than i knew how to handle. i left because i was afraid of being truly seen.",likes:178,comments:[{flag:"🇧🇷",text:"this one hurt"},{flag:"🇫🇷",text:"at least you can see it now"}]},
+  // ── TOXIC ANONYMOUS ──────────────────────────────────────────────────────────
+  {flag:"🇧🇪",id:"2265",text:"hot take: most people are not interesting, they're just available. and we confuse the two.",likes:617,comments:[{flag:"🇬🇧",text:"...okay this is actually accurate"},{flag:"🇺🇸",text:"i need to sit with this one"}]},
+  {flag:"🇦🇹",id:"1178",text:"the system rewards confidence over competence every single time and we all just accept this.",likes:834,comments:[{flag:"🇮🇳",text:"my entire career confirmed"},{flag:"🇯🇵",text:"confident idiot beats quiet genius, in every room"}]},
+  {flag:"🇬🇷",id:"6634",text:"what if the version of me i'm trying to become is just as lost as the one i am now.",likes:67,comments:[{flag:"🇸🇦",text:"this is the question that breaks you and fixes you simultaneously"}]},
+  {flag:"🇮🇱",id:"8801",text:"everyone's performing okayness. i'm performing okayness. we're all performing okayness together.",likes:912,comments:[{flag:"🇺🇸",text:"the okayness performance is exhausting"},{flag:"🇫🇷",text:"can we all agree to stop"},{flag:"🇦🇷",text:"not until someone goes first"}]},
+  {flag:"🇸🇬",id:"5523",text:"real question: how many fake arguments do you replay daily with people who don't know you're fighting.",likes:1204,comments:[{flag:"🇮🇳",text:"currently 4 active unfinished ones"},{flag:"🇺🇸",text:"i always win those btw"},{flag:"🇬🇧",text:"and i deliver the perfect speech every time 💀"}]},
+  {flag:"🇳🇿",id:"3371",text:"i think i've been waiting for permission to live my life. from someone who doesn't exist.",likes:256,comments:[{flag:"🇰🇷",text:"this woke something up in me"}]},
+  {flag:"🇲🇾",id:"9965",text:"stop glorifying being broke. it's survival mode, not an aesthetic.",likes:443,comments:[{flag:"🇧🇷",text:"💯"},{flag:"🇿🇦",text:"the romanticization needs to end"},{flag:"🇺🇸",text:"struggling is not a personality trait"}]},
+  {flag:"🇵🇭",id:"1198",text:"friendship is just recurring coincidences that eventually you stop allowing to happen.",likes:187,comments:[{flag:"🇲🇽",text:"this is the saddest true thing"},{flag:"🇫🇷",text:"i felt this in my chest"}]},
+  {flag:"🇺🇦",id:"7723",text:"we're all NPCs in someone else's main quest and they barely notice us in their dialogue.",likes:892,comments:[{flag:"🇺🇸",text:"i am SO skippable"},{flag:"🇯🇵",text:"hoping i'm at least a memorable side character"}]},
+  {flag:"🇨🇿",id:"4456",text:"my entire personality is just trauma responses i learned to make look like quirks.",likes:1567,comments:[{flag:"🇩🇪",text:"therapy in one sentence"},{flag:"🇮🇳",text:"the audacity to be THIS correct"},{flag:"🇺🇸",text:"pinning this to my brain"}]},
+  // ── HEARTBREAK & LOSS ─────────────────────────────────────────────────────────
+  {flag:"🇭🇺",id:"5589",text:"i don't miss them. i miss the version of me that existed when they were around.",likes:2103,comments:[{flag:"🇫🇷",text:"this is the actual truth they don't tell you about heartbreak"},{flag:"🇧🇷",text:"😭 been sitting with this for 5 minutes"}]},
+  {flag:"🇷🇴",id:"3342",text:"the most dangerous thing about loneliness is it starts to feel like your natural state.",likes:445,comments:[{flag:"🇸🇦",text:"it creeps in until you forget what the alternative feels like"},{flag:"🇰🇷",text:"reach out to someone tonight. seriously."}]},
+  {flag:"🇸🇰",id:"2287",text:"'if you need therapy you need discipline.' said by someone who desperately needs both.",likes:1832,comments:[{flag:"🇺🇸",text:"💀💀💀"},{flag:"🇬🇧",text:"it's giving 'i eat rocks for breakfast'"},{flag:"🇮🇳",text:"self-awareness: zero"}]},
+  {flag:"🇭🇷",id:"8834",text:"sometimes i write things in my notes app too honest to post anywhere. this was one of them.",likes:334,comments:[{flag:"🇩🇿",text:"brave."},{flag:"🇫🇷",text:"the notes app is the realest social media"}]},
+  {flag:"🇧🇬",id:"1154",text:"i am one conversation away from changing my entire trajectory. just terrified to start it.",likes:289,comments:[{flag:"🇺🇸",text:"send the message. the fear doesn't go away. do it scared."}]},
+  {flag:"🇱🇹",id:"6678",text:"modern loneliness: surrounded by people who'd react to your death online but wouldn't call you today.",likes:2891,comments:[{flag:"🇬🇧",text:"most disturbing true thing posted this week"},{flag:"🇦🇷",text:"read this and immediately texted someone"},{flag:"🇯🇵",text:"check on your actual people. not their stories. THEM."}]},
+  {flag:"🇱🇻",id:"4498",text:"the scariest part of therapy is discovering you are both the wound and the one doing the hurting.",likes:678,comments:[{flag:"🇩🇪",text:"took me 2 years and $4000 to understand this sentence"},{flag:"🇮🇳",text:"reading this was free and equally painful"}]},
+  {flag:"🇪🇪",id:"2276",text:"great life on paper. feel absolutely nothing most of the time. what's that called.",likes:1122,comments:[{flag:"🇺🇸",text:"high-functioning emptiness. it's a thing."},{flag:"🇫🇷",text:"anhedonia. and you're not alone."},{flag:"🇧🇷",text:"the paper version doesn't feel anything because it's paper"}]},
+  {flag:"🇲🇹",id:"9901",text:"my biggest fear isn't failure. it's building everything i want and still feeling empty.",likes:877,comments:[{flag:"🇸🇦",text:"the most under-discussed fear"},{flag:"🇩🇿",text:"it scares me every single day"}]},
+  {flag:"🇨🇾",id:"3365",text:"people who ghost you are just doing you a favor badly. the message is the same, they're just cowards.",likes:1003,comments:[{flag:"🇺🇸",text:"simultaneously correct and unsatisfying"},{flag:"🇰🇷",text:"the coward part is the part that lingers"}]},
+  // ── DARK HUMOR / ABSURD ───────────────────────────────────────────────────────
+  {flag:"🇮🇸",id:"7756",text:"this app is what it looks like when you can see everyone's 2am thoughts at once. it's a lot.",likes:556,comments:[{flag:"🇬🇧",text:"somehow less terrifying than expected"},{flag:"🇯🇵",text:"the realness here is kind of beautiful"}]},
+  {flag:"🇱🇺",id:"5534",text:"told i was 'too much' so many times i started performing 'just enough.' nobody noticed the difference.",likes:1445,comments:[{flag:"🇫🇷",text:"'too much' means too much for someone who wasn't enough"},{flag:"🇦🇷",text:"whoever told you that was wrong. be the whole thing."}]},
+  {flag:"🇲🇨",id:"8867",text:"why do we say we're fine. it takes 2 seconds, we all know it's a lie, and we all accept it anyway.",likes:2234,comments:[{flag:"🇩🇪",text:"social contract holding civilization by one thread"},{flag:"🇺🇸",text:"'fine' is load-bearing"},{flag:"🇧🇷",text:"if everyone stopped saying fine, society collapses"}]},
+  {flag:"🇸🇲",id:"1143",text:"the most radical thing you can do right now is rest without performing productivity while you do it.",likes:678,comments:[{flag:"🇬🇧",text:"radical rest is real"},{flag:"🇮🇳",text:"tell this to my parents"}]},
+  {flag:"🇻🇦",id:"4487",text:"some people developed sarcasm as a defense mechanism so strong they can't turn it off anymore.",likes:1789,comments:[{flag:"🇺🇸",text:"i can't tell if this is a compliment or a diagnosis"},{flag:"🇩🇿",text:"it's both and it applies to me specifically"},{flag:"🇫🇷",text:"the ironic detachment is structural at this point"}]},
+  {flag:"🇩🇰",id:"2291",text:"i love my friends but i cancel plans at an 87% rate. i don't know how they still invite me.",likes:3401,comments:[{flag:"🇩🇪",text:"the 13% is enough for us"},{flag:"🇺🇸",text:"fellow cancelers we must unionize"},{flag:"🇯🇵",text:"they invite you because they love the possibility of you showing up"}]},
+  {flag:"🇫🇮",id:"6623",text:"finnish silence is deep communication. i can see how outsiders find it horrifying though.",likes:412,comments:[{flag:"🇸🇪",text:"same in sweden. silence = i respect you."},{flag:"🇺🇸",text:"i was in helsinki 3 days and thought everyone hated me"}]},
+  {flag:"🇳🇴",id:"3387",text:"people who post most about gratitude are statistically the most desperately unhappy. no source. feels true.",likes:678,comments:[{flag:"🇬🇧",text:"no source but feel deeply true"},{flag:"🇦🇷",text:"the louder the gratitude, the bigger the void"}]},
+  {flag:"🇮🇪",id:"8845",text:"i'm not antisocial. i'm just very good at calculating the energy cost of every interaction.",likes:1901,comments:[{flag:"🇮🇳",text:"introversion with an economics degree"},{flag:"🇩🇿",text:"this is the most relatable thing i've read all week"}]},
+  // ── SOCIETY & CAPITALISM ──────────────────────────────────────────────────────
+  {flag:"🇵🇹",id:"5578",text:"the saddest thing in the world is a smart person who stopped believing in themselves years ago.",likes:1234,comments:[{flag:"🇺🇸",text:"the potential just sitting there untouched kills me"},{flag:"🇧🇷",text:"are you talking about me specifically"}]},
+  {flag:"🇪🇸",id:"7712",text:"nothing reveals character faster than how someone treats the person who can do nothing for them.",likes:2456,comments:[{flag:"🇫🇷",text:"the waiter test never lies"},{flag:"🇯🇵",text:"this should be the only job interview question"}]},
+  {flag:"🇮🇹",id:"4467",text:"i said i'd change and i did. slowly. invisibly. in ways nobody noticed. but i know.",likes:789,comments:[{flag:"🇩🇿",text:"the quiet transformation is the realest one"},{flag:"🇰🇷",text:"this is what growth actually looks like"}]},
+  {flag:"🇬🇧",id:"2298",text:"crying in the car before going inside is one of the most universal human experiences nobody talks about.",likes:4512,comments:[{flag:"🇺🇸",text:"the car is the last private space"},{flag:"🇩🇪",text:"the transition zone between public face and real face"},{flag:"🇦🇷",text:"5 minutes extra in the driveway goes hard"}]},
+  {flag:"🇺🇸",id:"1167",text:"i genuinely don't know if i'm building something or just staying busy enough not to think.",likes:1678,comments:[{flag:"🇩🇿",text:"the brutal honesty of this keeps me up"},{flag:"🇫🇷",text:"motion without direction is still motion but where are you going"}]},
+  {flag:"🇨🇦",id:"9934",text:"does anyone else stare at a task for 3 hours and then do it in 7 minutes. asking for me.",likes:8934,comments:[{flag:"🇬🇧",text:"the 3hr stare is doing invisible work"},{flag:"🇮🇳",text:"the 7 minutes are very efficient though"},{flag:"🇧🇷",text:"the mathematics of procrastination"}]},
+  {flag:"🇦🇺",id:"3356",text:"i don't have impostor syndrome i have evidence. big difference.",likes:2345,comments:[{flag:"🇺🇸",text:"💀 this is either very confident or very concerning"},{flag:"🇩🇪",text:"the self-awareness is terrifying"}]},
+  {flag:"🇳🇿",id:"7789",text:"capitalism will have you feeling guilty for resting. on a sunday. alone. in your own house.",likes:5671,comments:[{flag:"🇫🇷",text:"the productivity guilt is always watching"},{flag:"🇦🇷",text:"rest IS work. your body is recovering."},{flag:"🇰🇷",text:"unlearn this. slowly. rest."}]},
+  {flag:"🇲🇽",id:"5545",text:"some people are so afraid of being wrong they'd rather be confidently stupid forever.",likes:3402,comments:[{flag:"🇺🇸",text:"i know 6 of these people personally"},{flag:"🇩🇿",text:"ego protecting ignorance is a full-time job for some"}]},
+  // ── BRUTALLY REAL ─────────────────────────────────────────────────────────────
+  {flag:"🇦🇷",id:"8878",text:"the real flex is being at peace. not the car. not the followers. the peace.",likes:1234,comments:[{flag:"🇯🇵",text:"the most expensive thing in the world actually"},{flag:"🇸🇦",text:"harder to acquire than anything else on the list"}]},
+  {flag:"🇧🇷",id:"2212",text:"your ex is not special. your brain is addicted to the neurochemicals of anxiety. seek a refund.",likes:7823,comments:[{flag:"🇺🇸",text:"SENT THIS TO MYSELF"},{flag:"🇬🇧",text:"the most useful thing anyone has ever posted"},{flag:"🇮🇳",text:"the science is accurate and it still doesn't help"}]},
+  {flag:"🇯🇵",id:"6667",text:"japanese concept: 'ma.' the space between things. i think we filled all of it with content.",likes:456,comments:[{flag:"🇩🇪",text:"the pause is where meaning lives"},{flag:"🇫🇷",text:"we filled all the ma with content and wonder why we're empty"}]},
+  {flag:"🇰🇷",id:"1189",text:"kpop stans are people who needed a parasocial relationship to feel less alone. i say this with love.",likes:2109,comments:[{flag:"🇺🇸",text:"the accuracy…"},{flag:"🇧🇷",text:"i'm a kpop stan and i approve this message"},{flag:"🇨🇳",text:"parasocial connection is still connection. let us have it."}]},
+  {flag:"🇨🇳",id:"9978",text:"in china we say 'kill the chicken to scare the monkey.' the west just fires the monkey and confuses everyone.",likes:891,comments:[{flag:"🇺🇸",text:"more insightful than anything i learned in business school"},{flag:"🇬🇧",text:"🐔"}]},
+  {flag:"🇮🇳",id:"4423",text:"arranged marriage and dating apps are both algorithms. at least one has met your mother.",likes:4512,comments:[{flag:"🇺🇸",text:"your mother's algorithm is probably better actually"},{flag:"🇩🇿",text:"💀💀 correct though"},{flag:"🇯🇵",text:"meeting the mother is the ultimate filter"}]},
+  {flag:"🇸🇦",id:"7756",text:"the audacity of the sun to keep rising every day like everything is fine.",likes:1023,comments:[{flag:"🇩🇿",text:"chronic positivity from the sun is unhinged"},{flag:"🇦🇷",text:"the sun has no context and it shows"}]},
+  {flag:"🇩🇿",id:"3389",text:"i haven't slept properly in weeks. my brain is a startup that's running out of funding.",likes:1567,comments:[{flag:"🇺🇸",text:"sleep debt is a startup killer"},{flag:"🇫🇷",text:"close the tabs. shut down. reboot."},{flag:"🇮🇳",text:"the VCs of consciousness are about to pull out"}]},
+  {flag:"🇫🇷",id:"5512",text:"french people understand that food is not fuel. it is time. it is love. it is the whole point.",likes:2341,comments:[{flag:"🇮🇹",text:"finally someone said it"},{flag:"🇺🇸",text:"me eating a protein bar in 45 seconds: 👁️"}]},
+  {flag:"🇩🇪",id:"8823",text:"german efficiency is real but so is german collective guilt and i think the two might be related.",likes:445,comments:[{flag:"🇬🇧",text:"this is a PHD thesis in 20 words"},{flag:"🇫🇷",text:"ambitious observation"}]},
+  {flag:"🇬🇧",id:"2234",text:"british politeness is aggression with manners. 'quite good' means disaster. 'lovely' means nothing.",likes:6723,comments:[{flag:"🇺🇸",text:"'interesting' is the knife. nobody knows until they're bleeding."},{flag:"🇩🇪",text:"this explains so much about my english colleagues"},{flag:"🇦🇺",text:"'not bad' means outstanding. complex system."}]},
+  // ── SYSTEMIC / GLOBAL ─────────────────────────────────────────────────────────
+  {flag:"🇺🇸",id:"6645",text:"american healthcare is a scam but please stay alive in the meantime, you can't afford not to.",likes:9012,comments:[{flag:"🇨🇦",text:"come north we have issues but at least we have healthcare"},{flag:"🇬🇧",text:"the NHS is imperfect but it's ours"},{flag:"🇩🇿",text:"stay alive first, fix the system second"}]},
+  {flag:"🇵🇱",id:"1156",text:"i survived things that were supposed to break me. nobody knows. i carry it like it never happened.",likes:3401,comments:[{flag:"🇩🇿",text:"the silent strength is real and exhausting"},{flag:"🇫🇷",text:"you're allowed to put some of it down"}]},
+  {flag:"🇷🇴",id:"7767",text:"romanians say 'treacă-meargă' — let it pass, let it go. entire national attitude in 4 syllables.",likes:234,comments:[{flag:"🇬🇧",text:"my country needs this phrase immediately"},{flag:"🇺🇸",text:"the philosophy of letting things be is underrated"}]},
+  {flag:"🇵🇹",id:"5589",text:"saudade — longing for something you can't name. i've felt it my whole life without knowing the word.",likes:1789,comments:[{flag:"🇩🇿",text:"now i have a word for this feeling that had no name"},{flag:"🇯🇵",text:"mono no aware. same energy, different angle."}]},
+  {flag:"🇦🇱",id:"3378",text:"my grandmother survived communism, poverty, migration, raised 5 kids. still asks if i've eaten. perspective.",likes:5678,comments:[{flag:"🇩🇿",text:"north african grandmothers share this exact spirit"},{flag:"🇮🇳",text:"my dadi is the same 💙"}]},
+  {flag:"🇲🇦",id:"8812",text:"nobody tells you about the loneliness of being the first in your family to 'make it.'",likes:2345,comments:[{flag:"🇩🇿",text:"first gen loneliness is real and barely discussed"},{flag:"🇧🇷",text:"the gap between you and where you came from grows and it's complicated"},{flag:"🇮🇳",text:"a specific silence at family gatherings. i know it."}]},
+  {flag:"🇹🇳",id:"1123",text:"people say 'be yourself' but also 'don't be too much.' which one is it exactly.",likes:1234,comments:[{flag:"🇺🇸",text:"be yourself in specific pre-approved doses"},{flag:"🇫🇷",text:"be yourself but curated. be yourself but strategic. be yourself but less."}]},
+  {flag:"🇱🇾",id:"6656",text:"i haven't cried in so long i'm starting to worry the mechanism is broken.",likes:3456,comments:[{flag:"🇩🇿",text:"dissociation does that. it's not broken, it's protecting you."},{flag:"🇸🇦",text:"put on music from when you were 15. works every time."},{flag:"🇺🇸",text:"heartwarming animal video + onions. industrial solution."}]},
+  {flag:"🇪🇬",id:"4434",text:"my dad worked 30 years at a job he hated to give me a life he never had. i build things in my room.",likes:4512,comments:[{flag:"🇮🇳",text:"the generational leap is wild when you actually look at it"},{flag:"🇩🇿",text:"we carry their sacrifice in everything we build"},{flag:"🇧🇷",text:"two completely different kinds of courage"}]},
+  {flag:"🇸🇩",id:"2287",text:"africa produces enough food to feed itself three times over. the shortage is manufactured. full stop.",likes:1023,comments:[{flag:"🇳🇬",text:"structural violence dressed up as natural disaster"},{flag:"🇿🇦",text:"this needs to be said louder"}]},
+  {flag:"🇳🇬",id:"7778",text:"hustle is not a personality. it's survival mode being sold back to us as aspiration.",likes:6789,comments:[{flag:"🇩🇿",text:"they monetized suffering and called it entrepreneurship"},{flag:"🇺🇸",text:"grinding is just wage slavery with extra steps and a podcast"},{flag:"🇧🇷",text:"the rebrand of exploitation is impressive honestly"}]},
+  // ── BUILDERS & CREATORS ───────────────────────────────────────────────────────
+  {flag:"🇬🇭",id:"3345",text:"the youth in africa are the most creative generation on earth and infrastructure keeps failing them.",likes:892,comments:[{flag:"🇩🇿",text:"talent without opportunity is the real waste"},{flag:"🇳🇬",text:"the brain drain is a wound that keeps bleeding"}]},
+  {flag:"🇪🇹",id:"8856",text:"i speak 3 languages, code in 2. rejected from 40 jobs in europe. talent is not the filter.",likes:2341,comments:[{flag:"🇩🇿",text:"the filter has a different name"},{flag:"🇫🇷",text:"this makes me ashamed of the system i benefit from"},{flag:"🇬🇧",text:"the name on your CV does more work than your CV"}]},
+  {flag:"🇿🇼",id:"5567",text:"my country taught me that hope can survive almost anything. almost.",likes:334,comments:[{flag:"🇸🇦",text:"that 'almost' carries so much weight"},{flag:"🇩🇿",text:"🫂"}]},
+  {flag:"🇸🇳",id:"1189",text:"teranga — senegalese radical hospitality. strangers fed before family members. imagine that.",likes:456,comments:[{flag:"🇩🇿",text:"north africa has this too. the guest is sacred."},{flag:"🇺🇸",text:"i've never felt this in my country and i grieve it"}]},
+  {flag:"🇨🇲",id:"6623",text:"i've been coding since midnight. it's 6am. i haven't eaten. but it works. it finally works.",likes:3401,comments:[{flag:"🇩🇿",text:"the moment it works makes everything disappear"},{flag:"🇮🇳",text:"the code doesn't care about your blood sugar. eat something."},{flag:"🇺🇸",text:"peak and bottom simultaneously. developer experience."}]},
+  {flag:"🇷🇼",id:"4412",text:"my country went from genocide to fastest growing economy in africa in 30 years. don't talk to me about impossible.",likes:4567,comments:[{flag:"🇩🇿",text:"most powerful sentence i've read all year"},{flag:"🇳🇬",text:"Rwanda is what happens when the people decide."},{flag:"🇺🇸",text:"the resilience in this post is immense"}]},
+  {flag:"🇰🇪",id:"2256",text:"safari is the original internet. every animal watching, adapting, connected to everything else.",likes:678,comments:[{flag:"🇩🇿",text:"this metaphor works on every level"},{flag:"🇬🇧",text:"predator and prey. protocol and response. the original network."}]},
+  {flag:"🇿🇦",id:"7789",text:"apartheid ended 30 years ago. the wealth gap it created is still intact. systems outlive the people who built them.",likes:2345,comments:[{flag:"🇳🇬",text:"colonialism: historical in name, economic in reality"},{flag:"🇺🇸",text:"the structures remain when the ideology is declared over"}]},
+  {flag:"🇸🇴",id:"3367",text:"i've been in 4 countries in 5 years. i don't know if i'm building a life or running from one.",likes:1234,comments:[{flag:"🇩🇿",text:"sometimes both. and sometimes that's okay."},{flag:"🇫🇷",text:"movement can be grief in disguise"},{flag:"🇬🇧",text:"the difference is in what you're building toward"}]},
+  // ── HEAVY / REAL WEIGHT ───────────────────────────────────────────────────────
+  {flag:"🇲🇿",id:"5578",text:"my mother learned to read at 45 so she could read my letters. i can't explain what that does to me.",likes:8901,comments:[{flag:"🇩🇿",text:"one of the most beautiful things i've ever read"},{flag:"🇮🇳",text:"the love in this is overwhelming"},{flag:"🇺🇸",text:"not crying it's allergies but it's not allergies"}]},
+  {flag:"🇨🇩",id:"1145",text:"the congo has enough mineral wealth to develop every african nation. yet somehow we remain 'developing.'",likes:1023,comments:[{flag:"🇳🇬",text:"the extraction model is very much still running"},{flag:"🇺🇸",text:"your phone probably has congolese cobalt in it. including mine."}]},
+  {flag:"🇲🇱",id:"4423",text:"timbuktu had universities when europe was in the dark ages. we have always been here.",likes:3456,comments:[{flag:"🇩🇿",text:"the historical amnesia was deliberate"},{flag:"🇸🇳",text:"the manuscripts are still being translated. the knowledge never left."},{flag:"🇺🇸",text:"i did not learn this in any school."}]},
+  {flag:"🇩🇿",id:"3399",text:"building something in my room at 2am in a country where the system won't help me. and it's working.",likes:5678,comments:[{flag:"🇨🇲",text:"the builder energy in the dark is different"},{flag:"🇳🇬",text:"infrastructure of the spirit when the physical fails"},{flag:"🇰🇷",text:"this is what 'bet on yourself' actually looks like"}]},
+  {flag:"🇫🇷",id:"8812",text:"je suis épuisé d'expliquer que je suis fatigué. the meta-exhaustion is real.",likes:1234,comments:[{flag:"🇩🇿",text:"having to justify exhaustion is its own exhaustion"},{flag:"🇧🇪",text:"en français pour les francophones: c'est réel"},{flag:"🇲🇦",text:"tellement vrai que ça fait mal"}]},
+  {flag:"🇧🇷",id:"5556",text:"worst feeling: brain at 10% while life is still running at 100%.",likes:9012,comments:[{flag:"🇺🇸",text:"demand never matches supply and life doesn't do refunds"},{flag:"🇩🇿",text:"running on fumes is a skill. a bad skill. but still."},{flag:"🇫🇷",text:"the mismatch is brutal"}]},
+  {flag:"🇷🇺",id:"2278",text:"i miss russia. not the politics. the smell of rain on summer asphalt. my grandmother's kitchen. that's gone.",likes:334,comments:[{flag:"🇩🇿",text:"home that only lives in memory is a specific grief"},{flag:"🇺🇦",text:"i understand this grief in a different and painful way"},{flag:"🇵🇱",text:"the home and the country are never the same thing"}]},
+  {flag:"🇺🇦",id:"7745",text:"i think about normal a lot. just... normal. a tuesday that's just a tuesday.",likes:6789,comments:[{flag:"🇩🇿",text:"wishing you many boring tuesdays soon 💙"},{flag:"🇵🇱",text:"this broke something in me 💙"},{flag:"🇬🇧",text:"we take ordinary tuesdays for granted every single day"}]},
+  {flag:"🇸🇾",id:"3390",text:"i dream in a city that doesn't exist anymore. the people in the dream don't know yet.",likes:2345,comments:[{flag:"🇩🇿",text:"🫂 the weight of this is immense"},{flag:"🇫🇷",text:"some dreams are archives"},{flag:"🇯🇵",text:"the people in the dream are safe there. that's something."}]},
+  {flag:"🇮🇶",id:"5523",text:"my grandfather had a library. they burned it. i learned to code so nothing i build can ever be burned.",likes:4512,comments:[{flag:"🇩🇿",text:"this is why digital matters. exactly this."},{flag:"🇺🇸",text:"the indestructibility is the whole point"},{flag:"🇫🇷",text:"building in the language of machines because they tried to silence the language of humans"}]},
+  {flag:"🇵🇸",id:"8890",text:"it costs nothing to say their names.",likes:12034,comments:[{flag:"🇩🇿",text:"🍉"},{flag:"🇸🇦",text:"always."},{flag:"🇲🇦",text:"always."},{flag:"🇯🇴",text:"always."}]},
+  {flag:"🇮🇷",id:"1167",text:"my country is not my government. i need you to understand that.",likes:8901,comments:[{flag:"🇩🇿",text:"same. always separate the people from the power."},{flag:"🇷🇺",text:"same."},{flag:"🇺🇸",text:"same."},{flag:"🇬🇧",text:"same."}]},
+  {flag:"🇹🇷",id:"6634",text:"my city stood for 3000 years. the earthquake lasted 78 seconds. everything i knew is gone.",likes:5678,comments:[{flag:"🇩🇿",text:"we grieve with you. the earth has no mercy."},{flag:"🇬🇧",text:"3000 years and 78 seconds. the math of disaster."},{flag:"🇫🇷",text:"the loss of home is the loss of story"}]},
+  {flag:"🇲🇦",id:"3356",text:"i want to build something so real it outlasts me. not for legacy. just to prove i was here.",likes:2341,comments:[{flag:"🇩🇿",text:"this is why we build"},{flag:"🇰🇷",text:"the impulse to mark existence is the most human thing"},{flag:"🇺🇸",text:"build it. we'll be here."}]},
+  {flag:"🇩🇿",id:"9999",text:"wifi is better in algiers than in most european capitals now. we built that while they were busy talking about us.",likes:3401,comments:[{flag:"🇲🇦",text:"north africa is quietly building"},{flag:"🇹🇳",text:"and the next decade will be louder"},{flag:"🇫🇷",text:"this is fair and i'll sit with it"}]},
+];
+
+// ── GRID: 10 cols, canvas 2400×2100 → cell ~220px wide, ~158px tall
+// Gaps: ~35px horizontal, ~43px vertical — compact feel
+const COLS=10, ROWS=Math.ceil(BASE.length/COLS);
+const gcw=(WW-200)/COLS, gch=(WH-200)/ROWS;
+
+const cards=BASE.map((t,i)=>{
+  const col=i%COLS, row=Math.floor(i/COLS);
+  const jx=((i*137+41)%100)/100, jy=((i*97+23)%100)/100;
+  const ang=((i*61)%628)/100;
+  const spd=0.042+((i*17)%12)/300;
+  return{
+    ...t, liked:false, saved:false, comments:[...t.comments],
+    wx: 80+col*gcw+jx*Math.max(0,gcw-CW-20),
+    wy: 80+row*gch+jy*Math.max(0,gch-130),
+    vx: Math.cos(ang)*spd,
+    vy: Math.sin(ang)*spd,
+    // Phase in radians, evenly spread 0→2π so all cycle stages are visible at start
+    phase: (i/BASE.length)*Math.PI*2,
+    // ~0.0013–0.0019 rad/frame → 55–80 sec full oscillation cycle @ 60fps
+    phaseSpd: 0.0013+((i*7)%8)*0.000075,
+    el:null, sx:0, sy:0,
+  };
+});
+
+let cam={x:WW/2-vw()/2, y:WH/2-vh()/2};
+let vel={x:0,y:0};
+const FRICTION=0.984;
+let openI=null;
+
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+let stars=[];
+function initCanvas(){
+  const d=window.devicePixelRatio||1;
+  canvas.width=vw()*d; canvas.height=vh()*d;
+  canvas.style.width=vw()+'px'; canvas.style.height=vh()+'px';
+  ctx.scale(d,d);
+}
+function initStars(){
+  stars=Array.from({length:320},()=>{
+    const t=Math.random()<.55?0:Math.random()<.7?1:2;
+    return{
+      sx:Math.random()*vw(), sy:Math.random()*vh(),
+      r:[.26,.60,1.05][t],
+      par:[.06,.10,.15][t],
+      ba:[.12,.36,.64][t]*(0.5+Math.random()*.5),
+      ph:Math.random()*Math.PI*2, ps:.004+Math.random()*.01,
+      dx:(Math.random()-.5)*.025, dy:(Math.random()-.5)*.025,
+    };
+  });
+}
+
+const space=document.getElementById('space');
+function mkHtml(c){
+  return`<div class="crow">
+    <span class="cflag">${c.flag}</span>
+    <span class="cid">#${c.id}</span>
+  </div>
+  <div class="ctxt">${c.text}</div>
+  ${c.text.length>55?'<div class="cdots">···</div>':''}
+  <div class="cfoot">
+    <span>♡ ${c.likes}</span>
+    ${c.comments.length?`<span>💬 ${c.comments.length}</span>`:''}
+    <span style="margin-left:auto;color:rgba(70,105,255,.14)">tap</span>
+  </div>`;
+}
+cards.forEach(c=>{
+  const el=document.createElement('div');
+  el.className='card'; el.innerHTML=mkHtml(c);
+  space.appendChild(el); c.el=el;
+});
+
+const ov=document.getElementById('ov');
+const exp=document.getElementById('exp');
+const FLAGS_ALL=['🇩🇿','🇺🇸','🇫🇷','🇬🇧','🇧🇷','🇯🇵','🇮🇳','🇩🇪','🇰🇷','🇲🇽','🇨🇳','🇹🇷','🇸🇦','🇿🇦','🇦🇷'];
+
+function rdrComments(i){
+  const c=cards[i], el=document.getElementById('clist');
+  el.innerHTML=c.comments.length
+    ? c.comments.map(x=>`<div class="citem"><span class="citflag">${x.flag}</span><span class="cittxt">${x.text}</span></div>`).join('')
+    : '<div class="cempty">no comments yet</div>';
+  el.scrollTop=el.scrollHeight;
+}
+function openCard(i){
+  if(openI!==null)return;
+  openI=i;
+  const c=cards[i];
+  document.getElementById('ef').textContent=c.flag;
+  document.getElementById('eid').textContent='#'+c.id;
+  document.getElementById('etxt').textContent=c.text;
+  const lb=document.getElementById('elk');
+  lb.className='abtn'+(c.liked?' liked':'');
+  lb.textContent=(c.liked?'♥ ':'♡ ')+c.likes;
+  document.getElementById('ecm').textContent='💬 '+c.comments.length;
+  document.getElementById('cin').value='';
+  rdrComments(i);
+  const ew=Math.min(305,vw()*.9), eh=Math.min(460,vh()*.84);
+  exp.style.cssText+=`;left:${(vw()-ew)/2}px;top:${(vh()-eh)/2}px;width:${ew}px;max-height:${eh}px;overflow-y:auto`;
+  exp.classList.add('on');
+  ov.classList.add('on');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>exp.classList.add('show')));
+}
+function closeCard(){
+  exp.classList.remove('show');
+  ov.classList.remove('on');
+  setTimeout(()=>{exp.classList.remove('on');openI=null;},340);
+}
+document.getElementById('exc').addEventListener('click',closeCard);
+ov.addEventListener('click',closeCard);
+document.getElementById('elk').addEventListener('click',()=>{
+  if(openI===null)return;
+  const c=cards[openI]; c.liked=!c.liked; c.likes+=c.liked?1:-1;
+  const lb=document.getElementById('elk');
+  lb.className='abtn'+(c.liked?' liked':'');
+  lb.textContent=(c.liked?'♥ ':'♡ ')+c.likes;
+  if(c.el)c.el.innerHTML=mkHtml(c);
+});
+function addComment(){
+  if(openI===null)return;
+  const inp=document.getElementById('cin'), txt=inp.value.trim();
+  if(!txt)return;
+  cards[openI].comments.push({flag:FLAGS_ALL[Math.floor(Math.random()*FLAGS_ALL.length)],text:txt});
+  inp.value='';
+  document.getElementById('ecm').textContent='💬 '+cards[openI].comments.length;
+  rdrComments(openI);
+  if(cards[openI].el)cards[openI].el.innerHTML=mkHtml(cards[openI]);
+}
+document.getElementById('csend').addEventListener('click',addComment);
+document.getElementById('cin').addEventListener('keydown',e=>{if(e.key==='Enter')addComment();});
+
+const drag={active:false,moved:false,sx:0,sy:0,cx:0,cy:0,px:0,py:0,tgt:null};
+const vbuf={x:[],y:[]};
+function getCI(el){
+  let n=el;
+  while(n&&n!==space){const i=cards.findIndex(c=>c.el===n);if(i!==-1)return i;n=n.parentElement;}
+  return -1;
+}
+function pStart(x,y,tgt){
+  if(openI!==null)return;
+  drag.active=true;drag.moved=false;
+  drag.sx=x;drag.sy=y;drag.cx=cam.x;drag.cy=cam.y;
+  drag.px=x;drag.py=y;drag.tgt=tgt;
+  vbuf.x=[];vbuf.y=[];vel.x=0;vel.y=0;
+  space.classList.add('drag');
+}
+function pMove(x,y){
+  if(!drag.active)return;
+  const ddx=x-drag.px,ddy=y-drag.py;drag.px=x;drag.py=y;
+  if(Math.abs(x-drag.sx)>5||Math.abs(y-drag.sy)>5)drag.moved=true;
+  if(!drag.moved)return;
+  vbuf.x.push(-ddx);if(vbuf.x.length>5)vbuf.x.shift();
+  vbuf.y.push(-ddy);if(vbuf.y.length>5)vbuf.y.shift();
+  vel.x=vbuf.x.reduce((a,b)=>a+b,0)/vbuf.x.length;
+  vel.y=vbuf.y.reduce((a,b)=>a+b,0)/vbuf.y.length;
+  cam.x=drag.cx-(x-drag.sx);
+  cam.y=drag.cy-(y-drag.sy);
+}
+function pEnd(){
+  drag.active=false;space.classList.remove('drag');
+  vel.x*=2.6;vel.y*=2.6;
+  if(!drag.moved&&drag.tgt){
+    let best=-1,bestD=55;
+    const tx=drag.sx,ty=drag.sy;
+    for(let i=0;i<cards.length;i++){
+      const c=cards[i];
+      const d=Math.hypot(c.sx-tx+CW*c.scale/2,c.sy-ty+55*c.scale);
+      if(d<bestD){bestD=d;best=i;}
+    }
+    const ci=getCI(drag.tgt);
+    if(ci!==-1)openCard(ci);
+    else if(best!==-1)openCard(best);
+  }
+  setTimeout(()=>{drag.moved=false;drag.tgt=null;},15);
+}
+space.addEventListener('pointerdown',e=>{pStart(e.clientX,e.clientY,e.target);});
+window.addEventListener('pointermove',e=>{if(drag.active)pMove(e.clientX,e.clientY);});
+window.addEventListener('pointerup',pEnd);
+document.getElementById('bar').addEventListener('pointerdown',e=>e.stopPropagation());
+
+let nid=9000;
+
+// ── BACKEND API ──────────────────────────────────────────────────────────────
+// Flask serves BOTH the HTML and the API → routes are relative (no localhost URL)
+const API='';
+
+// Spawns one card on the canvas — called by post() AND loadRealCards()
+function spawnCard(t){
+  const camXnow=((cam.x%WW)+WW)%WW;
+  const camYnow=((cam.y%WH)+WH)%WH;
+  const newPhase=Math.random()*Math.PI*2;
+  const ang=Math.random()*Math.PI*2, spd=0.04+Math.random()*.06;
+  const c={
+    flag:t.flag, id:String(t.id||nid++), text:t.text,
+    likes:t.likes||0, liked:false, saved:false, comments:t.comments||[],
+    wx:(camXnow+vw()/2-CW/2+(Math.random()-.5)*120+WW)%WW,
+    wy:(camYnow+vh()-220+WH)%WH,
+    vx:Math.cos(ang)*spd, vy:-0.06,
+    phase:newPhase, phaseSpd:0.0013+Math.random()*.0006,
+    el:null, sx:0, sy:0,
+  };
+  cards.push(c);
+  const el=document.createElement('div');
+  el.className='card'; el.innerHTML=mkHtml(c);
+  space.appendChild(el); c.el=el;
+  const sc=0.70+((Math.sin(newPhase)+1)*0.5)**0.32*0.30;
+  const cx2=((cam.x%WW)+WW)%WW, cy2=((cam.y%WH)+WH)%WH;
+  let isx=c.wx-cx2; if(isx>WW/2)isx-=WW; if(isx<-WW/2)isx+=WW;
+  let isy=c.wy-cy2; if(isy>WH/2)isy-=WH; if(isy<-WH/2)isy+=WH;
+  el.style.transform=`translate(${isx}px,${isy}px) scale(${sc*.1})`;
+  el.style.opacity='0';
+  el.style.transition='transform .52s cubic-bezier(.16,1,.3,1),opacity .38s ease';
+  el.style.zIndex=Math.round(sc*25);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    el.style.opacity=(0.65+sc*.35).toFixed(2);
+    el.style.transform=`translate(${isx}px,${isy}px) scale(${sc})`;
+    setTimeout(()=>{if(el)el.style.transition='';},560);
+  }));
+}
+
+// Send card text+flag to Python → returns the saved card with real database id
+async function saveCard(text,flag){
+  try{
+    const res=await fetch(`${API}/cards`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text,flag})
+    });
+    if(!res.ok)return null;
+    return await res.json();
+  }catch(e){
+    console.log('backend offline — card saved locally only');
+    return null;
+  }
+}
+
+// On startup: fetch all real cards from SQLite via Python and put them on canvas
+async function loadRealCards(){
+  try{
+    const res=await fetch(`${API}/cards`);
+    const rows=await res.json();
+    rows.forEach(d=>spawnCard({
+      id:String(d.id), flag:d.flag, text:d.text,
+      likes:d.likes||0, comments:[]
+    }));
+    console.log(`✦ loaded ${rows.length} real cards from database`);
+  }catch(e){
+    console.log('backend offline — showing seed cards only');
+  }
+}
+
+// Post: save to Python first → get real id → spawn on canvas
+async function post(){
+  const text=document.getElementById('tin').value.trim();
+  if(!text)return;
+  document.getElementById('tin').value='';
+  const flag=FLAGS_ALL[Math.floor(Math.random()*FLAGS_ALL.length)];
+  const saved=await saveCard(text,flag);
+  spawnCard({
+    id: saved?String(saved.id):String(nid++),
+    flag, text, likes:0, comments:[]
+  });
+}
+document.getElementById('dbt').addEventListener('click',post);
+document.getElementById('tin').addEventListener('keydown',e=>{if(e.key==='Enter')post();});
+
+let prevCam={...cam};
+function loop(){
+  requestAnimationFrame(loop);
+  const w=vw(),h=vh();
+  if(!drag.active){
+    vel.x*=FRICTION;vel.y*=FRICTION;
+    if(Math.abs(vel.x)<.015)vel.x=0;
+    if(Math.abs(vel.y)<.015)vel.y=0;
+    cam.x+=vel.x;cam.y+=vel.y;
+  }
+  const dcx=cam.x-prevCam.x, dcy=cam.y-prevCam.y;
+  prevCam.x=cam.x;prevCam.y=cam.y;
+
+  ctx.clearRect(0,0,w,h);
+  const g=ctx.createRadialGradient(w/2,h*.42,0,w/2,h*.42,w*.9);
+  g.addColorStop(0,'rgba(16,32,145,.07)');g.addColorStop(.55,'rgba(7,7,58,.03)');g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  for(const s of stars){
+    s.ph+=s.ps;
+    s.sx=((s.sx+s.dx-dcx*s.par)%w+w)%w;
+    s.sy=((s.sy+s.dy-dcy*s.par)%h+h)%h;
+    const a=s.ba*(.5+.5*Math.sin(s.ph));
+    ctx.beginPath();ctx.arc(s.sx,s.sy,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(182,202,255,${a})`;ctx.fill();
+  }
+
+  // Pre-compute toroidal camera once per frame (used by all cards)
+  const camX=((cam.x%WW)+WW)%WW;
+  const camY=((cam.y%WH)+WH)%WH;
+
+  for(let i=0;i<cards.length;i++){
+    if(i===openI)continue;
+    const c=cards[i];
+
+    // ── SMOOTH OSCILLATION ──────────────────────────────────────────────────────
+    // Phase grows forever in radians. sin() creates smooth 0→1→0→1 wave.
+    // Power <1 stretches time near peak (card lingers at full size before shrinking).
+    c.phase+=c.phaseSpd;
+    const t_raw=(Math.sin(c.phase)+1)*0.5;   // 0.0 → 1.0 → 0.0 smooth
+    const t=Math.pow(t_raw,0.32);             // linger at top: 0.32 < 1 → stretches peak
+    const scale=0.70+0.30*t;                  // 0.70 → 1.00 → 0.70
+    const opacity=0.60+0.40*t;                // 0.60 → 1.00 → 0.60
+    const zIdx=Math.round(t*25);
+    c.scale=scale;
+
+    // ── TOROIDAL DRIFT (no bounce — cards wrap to opposite edge) ────────────────
+    const driftSpeed=0.6+t*0.7;
+    c.wx=(c.wx+c.vx*driftSpeed+WW)%WW;
+    c.wy=(c.wy+c.vy*driftSpeed+WH)%WH;
+
+    // ── TOROIDAL SCREEN POSITION ────────────────────────────────────────────────
+    // Camera also wraps: pick the nearest "copy" of the card (shortest path).
+    // When card exits right edge it instantly appears from left, seamlessly.
+    let sx=c.wx-camX;
+    let sy=c.wy-camY;
+    if(sx>WW/2)sx-=WW;
+    if(sx<-WW/2)sx+=WW;
+    if(sy>WH/2)sy-=WH;
+    if(sy<-WH/2)sy+=WH;
+    c.sx=sx;c.sy=sy;
+    const onSc=sx>-280&&sx<w+60&&sy>-280&&sy<h+60;
+    if(c.el){
+      if(onSc){
+        c.el.style.display='block';
+        c.el.style.transform=`translate(${sx}px,${sy}px) scale(${scale})`;
+        c.el.style.opacity=opacity.toFixed(2);
+        c.el.style.zIndex=zIdx;
+        c.el.style.pointerEvents=openI===null?'auto':'none';
+      } else {
+        c.el.style.display='none';
+      }
+    }
+  }
+}
+
+initCanvas();initStars();loop();
+loadRealCards(); // fetch real posted cards from Python on startup
+window.addEventListener('resize',()=>{initCanvas();initStars();});
+</script>
+</body>
+</html>
