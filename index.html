@@ -53,7 +53,7 @@ body{
 /* ── CARDS ───────────────────────────────────────────────────────────── */
 .card{
   position:absolute;top:0;left:0;transform-origin:top left;
-  width:172px;will-change:transform;
+  width:180px;will-change:transform;
   background:rgba(6,8,26,0.84);
   border:1px solid rgba(80,110,255,0.13);
   border-radius:16px;padding:14px 14px 10px;
@@ -345,7 +345,7 @@ body{
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const WORLD  = 3400;
-const CARD_W = 172;
+const CARD_W = 180;
 const NAV_H  = 52;
 
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -435,7 +435,7 @@ function spawnCard(d){
     wy:   (Math.random()-.5) * WORLD,
     vx:   (Math.random()-.5) * .22,
     vy:   (Math.random()-.5) * .22,
-    z:    .55 + Math.random() * .65,
+    z:    .75 + Math.random() * .65,
     el:   null,
     _liked: false
   };

@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify, send_from_directory
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from collections import defaultdict
 import time
 
 app = Flask(__name__)
-DB = 'drift.db'
 
 # ─── RATE LIMITER ─────────────────────────────────────────────────────────────
 POST_LOG = defaultdict(list)
@@ -21,15 +22,18 @@ def is_rate_limited(ip):
 
 # ─── DATABASE ─────────────────────────────────────────────────────────────────
 def get_db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
+    # Pulls the database string directly from the Environment variables you set up in Render
+    db_url = os.environ.get('DATABASE_URL')
+    conn = psycopg2.connect(db_url)
     return conn
 
 def init_db():
     conn = get_db()
-    conn.execute('''
+    cur = conn.cursor()
+    # Converted to PostgreSQL compatible datatypes (SERIAL instead of AUTOINCREMENT)
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS cards (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         SERIAL PRIMARY KEY,
             flag       TEXT    NOT NULL DEFAULT '🌍',
             text       TEXT    NOT NULL,
             likes      INTEGER NOT NULL DEFAULT 0,
@@ -37,28 +41,29 @@ def init_db():
             created_at TEXT    NOT NULL
         )
     ''')
-    conn.execute('''
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS comments (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         SERIAL PRIMARY KEY,
             card_id    INTEGER NOT NULL,
             flag       TEXT    NOT NULL DEFAULT '🌍',
             text       TEXT    NOT NULL,
             created_at TEXT    NOT NULL
         )
     ''')
-    conn.execute('''
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS reports (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         SERIAL PRIMARY KEY,
             card_id    INTEGER NOT NULL,
             reason     TEXT,
             created_at TEXT    NOT NULL
         )
     ''')
     conn.commit()
+    cur.close()
     conn.close()
-    print('✦ database ready')
+    print('✦ Supabase database ready')
 
-# Run on startup — works with gunicorn too (not just python app.py)
+# Run on startup — initializes your tables inside Supabase automatically if they don't exist
 init_db()
 
 # ─── STATIC FILES ─────────────────────────────────────────────────────────────
@@ -85,30 +90,29 @@ def assetlinks():
 def get_cards():
     mode = request.args.get('mode', 'mixed')
     conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     if mode == 'new':
-        rows = conn.execute(
-            'SELECT * FROM cards ORDER BY created_at DESC LIMIT 80'
-        ).fetchall()
+        cur.execute('SELECT * FROM cards ORDER BY created_at DESC LIMIT 80')
+        rows = cur.fetchall()
 
     elif mode == 'hot':
-        rows = conn.execute(
-            'SELECT * FROM cards ORDER BY score DESC LIMIT 80'
-        ).fetchall()
+        cur.execute('SELECT * FROM cards ORDER BY score DESC LIMIT 80')
+        rows = cur.fetchall()
 
     else:  # mixed: newest + most liked, no duplicates
-        recent  = conn.execute(
-            'SELECT * FROM cards ORDER BY created_at DESC LIMIT 55'
-        ).fetchall()
-        popular = conn.execute(
-            'SELECT * FROM cards ORDER BY score DESC LIMIT 25'
-        ).fetchall()
+        cur.execute('SELECT * FROM cards ORDER BY created_at DESC LIMIT 55')
+        recent = cur.fetchall()
+        cur.execute('SELECT * FROM cards ORDER BY score DESC LIMIT 25')
+        popular = cur.fetchall()
+        
         seen, rows = set(), []
         for r in recent + popular:
             if r['id'] not in seen:
                 seen.add(r['id'])
                 rows.append(r)
 
+    cur.close()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -119,15 +123,18 @@ def get_new_cards():
     since_ms = int(request.args.get('since', 0))
     since_dt = datetime.fromtimestamp(since_ms / 1000).isoformat()
     conn = get_db()
-    rows = conn.execute(
-        'SELECT * FROM cards WHERE created_at > ? ORDER BY created_at ASC',
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        'SELECT * FROM cards WHERE created_at > %s ORDER BY created_at ASC',
         (since_dt,)
-    ).fetchall()
+    )
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
 
-# GET /cards/batch?ids=1,2,3 — fetch specific cards (for saved/my drifts views)
+# GET /cards/batch?ids=1,2,3 — fetch specific cards
 @app.route('/cards/batch')
 def get_cards_batch():
     ids_str = request.args.get('ids', '')
@@ -136,11 +143,14 @@ def get_cards_batch():
     ids = [int(i) for i in ids_str.split(',') if i.strip().isdigit()]
     if not ids:
         return jsonify([])
-    placeholders = ','.join('?' * len(ids))
+    placeholders = ','.join('%s' for _ in ids)
     conn = get_db()
-    rows = conn.execute(
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
         f'SELECT * FROM cards WHERE id IN ({placeholders})', ids
-    ).fetchall()
+    )
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -170,32 +180,37 @@ def post_card():
         return jsonify({'error': 'slow down'}), 429
 
     conn = get_db()
-    cur  = conn.execute(
-        'INSERT INTO cards (flag, text, created_at) VALUES (?, ?, ?)',
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    # Using PostgreSQL RETURNING syntax to instantly capture our inserted card row data
+    cur.execute(
+        'INSERT INTO cards (flag, text, created_at) VALUES (%s, %s, %s) RETURNING *',
         (flag, text, datetime.now().isoformat())
     )
+    card = cur.fetchone()
     conn.commit()
-    card = dict(conn.execute(
-        'SELECT * FROM cards WHERE id = ?', (cur.lastrowid,)
-    ).fetchone())
+    cur.close()
     conn.close()
 
     print(f'✦ new card [{card["id"]}] {flag} "{text[:40]}..."')
-    return jsonify(card), 201
+    return jsonify(dict(card)), 201
 
 
 # POST /cards/<id>/like
 @app.route('/cards/<int:cid>/like', methods=['POST'])
 def like_card(cid):
     conn = get_db()
-    conn.execute('UPDATE cards SET likes = likes + 1 WHERE id = ?', (cid,))
-    conn.execute('''
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute('UPDATE cards SET likes = likes + 1 WHERE id = %s', (cid,))
+    # Converted SQLite's julianday over to PostgreSQL Native Extract Epoch math
+    cur.execute('''
         UPDATE cards SET
-        score = (likes * 3.0) / (((julianday('now') - julianday(created_at)) * 24) + 2)
-        WHERE id = ?
+        score = (likes * 3.0) / ((EXTRACT(EPOCH FROM (NOW() - created_at::timestamp)) / 3600.0) + 2)
+        WHERE id = %s
     ''', (cid,))
     conn.commit()
-    card = conn.execute('SELECT * FROM cards WHERE id = ?', (cid,)).fetchone()
+    cur.execute('SELECT * FROM cards WHERE id = %s', (cid,))
+    card = cur.fetchone()
+    cur.close()
     conn.close()
     return jsonify(dict(card))
 
@@ -205,10 +220,13 @@ def like_card(cid):
 @app.route('/cards/<int:cid>/comments', methods=['GET'])
 def get_comments(cid):
     conn = get_db()
-    rows = conn.execute(
-        'SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC',
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        'SELECT * FROM comments WHERE card_id = %s ORDER BY created_at ASC',
         (cid,)
-    ).fetchall()
+    )
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -224,14 +242,15 @@ def post_comment(cid):
         return jsonify({'error': 'invalid'}), 400
 
     conn = get_db()
-    conn.execute(
-        'INSERT INTO comments (card_id, flag, text, created_at) VALUES (?,?,?,?)',
+    cur = conn.cursor()
+    cur.execute(
+        'INSERT INTO comments (card_id, flag, text, created_at) VALUES (%s, %s, %s, %s)',
         (cid, flag, text, datetime.now().isoformat())
     )
+    cur.execute('SELECT COUNT(*) FROM comments WHERE card_id = %s', (cid,))
+    count = cur.fetchone()[0]
     conn.commit()
-    count = conn.execute(
-        'SELECT COUNT(*) FROM comments WHERE card_id = ?', (cid,)
-    ).fetchone()[0]
+    cur.close()
     conn.close()
 
     print(f'✦ comment on card {cid}: "{text[:30]}..."')
@@ -247,18 +266,19 @@ def flag_card():
 
     if card_id:
         conn = get_db()
-        conn.execute(
-            'INSERT INTO reports (card_id, reason, created_at) VALUES (?,?,?)',
+        cur = conn.cursor()
+        cur.execute(
+            'INSERT INTO reports (card_id, reason, created_at) VALUES (%s,%s,%s)',
             (card_id, reason, datetime.now().isoformat())
         )
-        conn.commit()
-        count = conn.execute(
-            'SELECT COUNT(*) FROM reports WHERE card_id = ?', (card_id,)
-        ).fetchone()[0]
+        cur.execute('SELECT COUNT(*) FROM reports WHERE card_id = %s', (card_id,))
+        count = cur.fetchone()[0]
         if count >= 3:
-            conn.execute('DELETE FROM cards WHERE id = ?', (card_id,))
-            conn.commit()
+            cur.execute('DELETE FROM cards WHERE id = %s', (card_id,))
+        conn.commit()
+        if count >= 3:
             print(f'⚑ card {card_id} auto-removed after {count} reports')
+        cur.close()
         conn.close()
 
     return jsonify({'ok': True})
@@ -275,7 +295,10 @@ def echo():
         source_text = data.get('text', '')
 
         conn = get_db()
-        rows = conn.execute('SELECT id, text FROM cards').fetchall()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute('SELECT id, text FROM cards')
+        rows = cur.fetchall()
+        cur.close()
         conn.close()
 
         if len(rows) < 2:
@@ -309,12 +332,16 @@ def admin():
     if request.args.get('key') != ADMIN_KEY:
         return '403', 403
     conn   = get_db()
-    cards  = conn.execute('SELECT * FROM cards ORDER BY created_at DESC').fetchall()
-    reports = conn.execute(
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute('SELECT * FROM cards ORDER BY created_at DESC')
+    cards  = cur.fetchall()
+    cur.execute(
         'SELECT r.*, c.text as card_text FROM reports r '
         'LEFT JOIN cards c ON r.card_id = c.id '
         'ORDER BY r.created_at DESC LIMIT 50'
-    ).fetchall()
+    )
+    reports = cur.fetchall()
+    cur.close()
     conn.close()
 
     rows = ''.join([
@@ -352,8 +379,10 @@ def admin_delete(cid):
     if request.args.get('key') != ADMIN_KEY:
         return '403', 403
     conn = get_db()
-    conn.execute('DELETE FROM cards WHERE id = ?', (cid,))
+    cur = conn.cursor()
+    cur.execute('DELETE FROM cards WHERE id = %s', (cid,))
     conn.commit()
+    cur.close()
     conn.close()
     return f'<script>history.back()</script>'
 
@@ -361,7 +390,6 @@ def admin_delete(cid):
 
 if __name__ == '__main__':
     print('─' * 40)
-    print('✦ drift is running')
-    print('✦ http://localhost:5000')
+    print('✦ drift is running on cloud postgres')
     print('─' * 40)
     app.run(debug=True, port=5000)
