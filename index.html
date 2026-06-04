@@ -63,7 +63,8 @@ body{
 }
 .card:hover{border-color:rgba(90,122,255,0.35);box-shadow:0 0 22px rgba(80,110,255,0.1)}
 .card.echo-match{border-color:rgba(100,140,255,0.65);box-shadow:0 0 28px rgba(80,110,255,0.22)}
-.cflag{font-size:15px;display:block;margin-bottom:7px;line-height:1}
+.cflag{font-size:11.5px;display:block;margin-bottom:7px;line-height:1;
+  letter-spacing:.4px;color:#6a7aaa;font-weight:500;font-variant-numeric:tabular-nums}
 .ctext{
   font-size:11.5px;line-height:1.55;color:#9aa4c2;display:block;
   display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
@@ -125,7 +126,7 @@ body{
   display:flex;flex-direction:column;gap:7px;
 }
 .sv-card:active{border-color:rgba(80,110,255,0.35)}
-.sv-flag{font-size:16px}
+.sv-flag{font-size:12px;letter-spacing:.4px;color:#6a7aaa;font-weight:500}
 .sv-text{font-size:13px;color:#8894bc;line-height:1.5}
 .sv-meta{font-size:10px;color:#253060;display:flex;gap:14px}
 
@@ -162,7 +163,7 @@ body{
   transition:background 0.2s,color 0.2s;
 }
 #aclose:hover{background:rgba(80,110,255,0.18);color:#7a8fff}
-#aflag{font-size:22px;margin-bottom:12px;display:block}
+#aflag{font-size:14px;margin-bottom:12px;display:block;letter-spacing:.6px;color:#7a8aaa;font-weight:500}
 #atext{font-size:15px;line-height:1.7;color:#c0c8e4;margin-bottom:20px}
 
 /* comments */
@@ -173,7 +174,7 @@ body{
   padding:9px 11px;border-radius:10px;
   background:rgba(80,110,255,0.05);margin-bottom:6px;
 }
-.cmt-flag{font-size:13px;flex-shrink:0;margin-top:1px}
+.cmt-flag{font-size:10.5px;flex-shrink:0;margin-top:2px;letter-spacing:.3px;color:#4a5880;white-space:nowrap;font-weight:500}
 .cmt-txt{font-size:12px;color:#7a84a8;line-height:1.45}
 
 /* comment form */
@@ -372,7 +373,19 @@ function addMine(id){
 function isSaved(id){ return getSaved().includes(id); }
 
 function getFlag(){
-  return localStorage.getItem('dfl') || '🌍';
+  const flag = localStorage.getItem('dfl') || '🌍';
+  const code = localStorage.getItem('drift_code') || '';
+  return code ? `${flag}${code}` : flag;
+}
+
+function buildAlias(){
+  if(localStorage.getItem('drift_code')) return;  // already assigned
+  const L   = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  // bias toward 3-4 digit numbers (feels more anonymous than 2)
+  const len = [3, 3, 4, 4, 2][Math.floor(Math.random() * 5)];
+  const min = Math.pow(10, len - 1);
+  const num = min + Math.floor(Math.random() * (min * 9));
+  localStorage.setItem('drift_code', `${L()}${L()}-${num}`);
 }
 
 // ── CANVAS / STARS ─────────────────────────────────────────────────────────
@@ -854,6 +867,7 @@ window.addEventListener('resize', ()=>{
   loop();
   setTimeout(hideSplash, 3500); // fallback if server slow
   await detectFlag();
+  buildAlias();  // ← generate LK-8042 style code once, after flag is known
   await loadRealCards();
   pollTimer = setInterval(pollNewCards, 10000);
 })();
