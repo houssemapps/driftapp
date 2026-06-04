@@ -248,17 +248,14 @@ body{
 </head>
 <body>
 
-<!-- SPLASH -->
 <div id="splash">
   <div class="sp-glow"><div class="sp-star">✦</div></div>
   <div class="sp-name">DRIFT</div>
   <div class="sp-tag">earth's mind · right now</div>
 </div>
 
-<!-- TOP NAV -->
 <nav id="topnav">
 
-  <!-- Home -->
   <button class="nb active" id="nb-home" onclick="showView('home')" title="Space">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
       <circle cx="12" cy="12" r="9"/>
@@ -271,7 +268,6 @@ body{
     <div class="nb-dot"></div>
   </button>
 
-  <!-- Saved -->
   <button class="nb" id="nb-saved" onclick="showView('saved')" title="Saved">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
@@ -279,7 +275,6 @@ body{
     <div class="nb-dot"></div>
   </button>
 
-  <!-- My Drifts -->
   <button class="nb" id="nb-mine" onclick="showView('mine')" title="My Drifts">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
       <circle cx="12" cy="8" r="4"/>
@@ -290,31 +285,25 @@ body{
 
 </nav>
 
-<!-- STAR CANVAS -->
 <canvas id="canvas"></canvas>
 
-<!-- FLOATING CARDS -->
 <div id="space"></div>
 
-<!-- EMPTY STATE -->
 <div id="emptystate" style="display:none">
   <div class="es-star">✦</div>
   <div class="es-txt">be the first to drift tonight</div>
 </div>
 
-<!-- SAVED VIEW -->
 <div class="sview" id="view-saved">
   <div class="sv-head">✦ &nbsp; Saved</div>
   <div id="saved-list"></div>
 </div>
 
-<!-- MY DRIFTS VIEW -->
 <div class="sview" id="view-mine">
   <div class="sv-head">◐ &nbsp; My Drifts</div>
   <div id="mine-list"></div>
 </div>
 
-<!-- CARD MODAL -->
 <div id="overlay">
   <div id="acard">
     <button id="aclose" onclick="closeCard()">✕</button>
@@ -334,7 +323,6 @@ body{
   </div>
 </div>
 
-<!-- POST INPUT -->
 <div id="postarea">
   <textarea id="tin" placeholder="what are you thinking right now..." maxlength="220" rows="1"></textarea>
   <button id="psend">drift &nbsp;✦</button>
@@ -831,7 +819,10 @@ function hideSplash(){
 async function detectFlag(){
   if(localStorage.getItem('dfl')) return;
   try{
-    const r = await fetch('https://ipapi.co/json/');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s max
+    const r = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(timeout);
     const d = await r.json();
     if(d.country_flag_emoji) localStorage.setItem('dfl', d.country_flag_emoji);
   } catch(e){}
@@ -849,7 +840,7 @@ window.addEventListener('resize', ()=>{
   initStars();
   loop();
   setTimeout(hideSplash, 3500); // fallback if server slow
-  detectFlag();
+  await detectFlag();
   await loadRealCards();
   pollTimer = setInterval(pollNewCards, 10000);
 })();
