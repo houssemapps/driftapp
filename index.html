@@ -815,17 +815,29 @@ function hideSplash(){
   setTimeout(()=>el.remove(), 950);
 }
 
-// ── FLAG AUTO-DETECT ──────────────────────────────────────────────────────
+// ── USER ID (persistent anonymous id, assigned once) ─────────────────────
+function getUserId(){
+  let uid = localStorage.getItem('drift_uid');
+  if(!uid){
+    uid = 'u' + Math.random().toString(36).slice(2,9) + Date.now().toString(36);
+    localStorage.setItem('drift_uid', uid);
+  }
+  return uid;
+}
+
+// ── FLAG AUTO-DETECT (calls backend proxy → ip-api.com, cached forever) ──
 async function detectFlag(){
-  if(localStorage.getItem('dfl')) return;
+  if(localStorage.getItem('dfl')) return;  // ← already cached, skip entirely
   try{
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000); // 3s max
-    const r = await fetch('https://ipapi.co/json/', { signal: controller.signal });
-    clearTimeout(timeout);
-    const d = await r.json();
-    if(d.country_flag_emoji) localStorage.setItem('dfl', d.country_flag_emoji);
-  } catch(e){}
+    const tid = setTimeout(() => controller.abort(), 4000);
+    const r   = await fetch('/geoip', { signal: controller.signal });
+    clearTimeout(tid);
+    if(r.ok){
+      const d = await r.json();
+      if(d.flag) localStorage.setItem('dfl', d.flag);
+    }
+  } catch(e){}  // silent — retries next session if it fails
 }
 
 // ── RESIZE ────────────────────────────────────────────────────────────────
@@ -837,6 +849,7 @@ window.addEventListener('resize', ()=>{
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async ()=>{
+  getUserId();   // ← assign persistent anonymous id on first load
   initStars();
   loop();
   setTimeout(hideSplash, 3500); // fallback if server slow

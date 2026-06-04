@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
+import json
+import urllib.request
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
@@ -282,6 +284,30 @@ def flag_card():
         conn.close()
 
     return jsonify({'ok': True})
+
+# ─── GEOIP (proxy to ip-api.com — avoids mixed-content on HTTPS) ─────────────
+
+@app.route('/geoip')
+def geoip():
+    raw_ip = request.headers.get('X-Forwarded-For', request.remote_addr) or ''
+    ip = raw_ip.split(',')[0].strip()
+    # strip port for plain IPv4 (e.g. "1.2.3.4:12345" → "1.2.3.4")
+    if ip and not ip.startswith('[') and ':' in ip:
+        ip = ip.rsplit(':', 1)[0]
+    flag = '🌍'
+    try:
+        url = f'http://ip-api.com/json/{ip}?fields=status,countryCode'
+        req = urllib.request.Request(url, headers={'User-Agent': 'drift-app/1.0'})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read())
+        code = data.get('countryCode', '') if data.get('status') == 'success' else ''
+        if len(code) == 2:
+            # country code (e.g. "DZ") → flag emoji (e.g. 🇩🇿)
+            flag = ''.join(chr(0x1F1E6 + ord(c) - 65) for c in code.upper())
+    except Exception as e:
+        print(f'geoip error: {e}')
+    return jsonify({'flag': flag})
+
 
 # ─── ECHO ─────────────────────────────────────────────────────────────────────
 
