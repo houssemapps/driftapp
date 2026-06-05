@@ -343,8 +343,8 @@ body{
 'use strict';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
-const WORLD  = 3400;
-const CARD_W = 180;
+const WORLD  = 5000;
+const CARD_W = 185;
 const NAV_H  = 52;
 
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -361,6 +361,7 @@ let echoAnchor = {wx:0, wy:0};
 let echoScores = {};
 let lastPoll   = Date.now();
 let pollTimer  = null;
+let currentView = 'home';   // tracks active tab for back-button logic
 
 // ── LOCAL STORAGE ──────────────────────────────────────────────────────────
 function getSaved(){ return JSON.parse(localStorage.getItem('ds')||'[]'); }
@@ -443,15 +444,17 @@ function mkHtml(c){
 }
 
 // ── FIBONACCI RING LAYOUT ──────────────────────────────────────────────────
-// Rings: 1,2,3,5,8,13,21,34… cards each. Dense near center, sparse outward.
-const FIB      = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
-const R_FIRST  = 90;   // radius of innermost ring (pixels)
-const R_RATIO  = 1.52; // ring-to-ring ratio (< φ keeps things tighter)
-const _ringOff = FIB.map(() => Math.random() * Math.PI * 2); // random ring rotation
-let _ring = 0, _ringN = 0; // which ring / slot we're filling
+// Sequence: grow to peak (34) then shrink → same radius growth means outer
+// rings with fewer cards = huge angular gaps = feels like deep space
+//   ring  0  1  2  3  4   5   6   7   8   9  10
+//   cards 1  2  3  5  8  13  21  34  34  21  13
+const FIB      = [1, 2, 3, 5, 8, 13, 21, 34, 34, 21, 13];
+const R_FIRST  = 85;   // innermost ring radius (px) — visible at startup
+const R_RATIO  = 1.48; // ring-to-ring multiplier — keeps outer rings in WORLD
+const _ringOff = FIB.map(() => Math.random() * Math.PI * 2);
+let _ring = 0, _ringN = 0;
 
 function nextRingPos(){
-  // Advance ring if current is full
   while(_ring < FIB.length - 1 && _ringN >= FIB[_ring]){
     _ring++; _ringN = 0;
   }
@@ -459,14 +462,11 @@ function nextRingPos(){
   const slot  = _ringN++;
   const total = FIB[ring];
   const r     = R_FIRST * Math.pow(R_RATIO, ring);
-  // Slight jitter so cards don't sit on a perfect geometric grid
-  const jitterR = (Math.random()-.5) * r * (0.04 + ring * 0.025);
-  const jitterA = (Math.random()-.5) * (0.08 + ring * 0.02);
-  const angle   = _ringOff[ring] + (slot / total) * Math.PI * 2 + jitterA;
-  return {
-    wx: (r + jitterR) * Math.cos(angle),
-    wy: (r + jitterR) * Math.sin(angle)
-  };
+  // Jitter grows with ring so outer cards feel naturally scattered
+  const jR = (Math.random()-.5) * r * (0.04 + ring * 0.022);
+  const jA = (Math.random()-.5) * (0.07 + ring * 0.025);
+  const a  = _ringOff[ring] + (slot / total) * Math.PI * 2 + jA;
+  return { wx: (r + jR) * Math.cos(a), wy: (r + jR) * Math.sin(a) };
 }
 
 // ── SPAWN CARD ─────────────────────────────────────────────────────────────
@@ -586,10 +586,11 @@ function loop(){
 // ── DRAG / PAN ─────────────────────────────────────────────────────────────
 const sp = document.getElementById('space');
 
-// mode: 'pan' = camera pan | 'card' = drag card via crow | 'tap' = card body tap → open
-const drag = {active:false, moved:false, mode:'pan', sx:0, sy:0, cx:0, cy:0, px:0, py:0, tgt:null, cardI:-1};
+// 3 zones: 'open' = .ctxt/.cdots tap→open | 'card' = .crow drag card | 'pan' = everything else
+const drag = {active:false, moved:false, mode:'pan', sx:0, sy:0, cx:0, cy:0, px:0, py:0, cardI:-1};
 const vbuf = {x:[], y:[]};
 
+// Walk DOM up to find the .card element index
 function getCI(el){
   let n = el;
   while(n && n !== sp){
@@ -600,31 +601,38 @@ function getCI(el){
   return -1;
 }
 
-function isOnCrow(el){
+// Classify which zone of a card was touched
+function getZone(el){
   let n = el;
   while(n && n !== sp){
-    if(n.classList && n.classList.contains('crow')) return true;
+    if(n.classList){
+      if(n.classList.contains('crow'))              return 'crow';
+      if(n.classList.contains('ctxt') ||
+         n.classList.contains('cdots'))             return 'text';
+    }
+    if(cards.some(c=>c.el===n))                     return 'card'; // cfoot or card bg
     n = n.parentElement;
   }
-  return false;
+  return 'space';
 }
 
 function pStart(x, y, tgt){
   if(openI !== null) return;
   drag.active=true; drag.moved=false;
   drag.sx=x; drag.sy=y; drag.cx=camX; drag.cy=camY;
-  drag.px=x; drag.py=y; drag.tgt=tgt;
+  drag.px=x; drag.py=y;
   vbuf.x=[]; vbuf.y=[]; velX=0; velY=0;
 
-  if(isOnCrow(tgt)){
+  const zone = getZone(tgt);
+  if(zone === 'crow'){
     drag.cardI = getCI(tgt);
-    drag.mode  = 'card';          // .crow grabbed → drag this card
-  } else if(getCI(tgt) !== -1){
-    drag.cardI = -1;
-    drag.mode  = 'tap';           // card body tapped → open on release
+    drag.mode  = 'card';   // .crow → drag this card
+  } else if(zone === 'text'){
+    drag.cardI = getCI(tgt);
+    drag.mode  = 'open';   // text body → always opens on release
   } else {
     drag.cardI = -1;
-    drag.mode  = 'pan';           // empty space → pan
+    drag.mode  = 'pan';    // cfoot / empty space / card edge → pan
   }
   sp.classList.add('drag');
 }
@@ -633,23 +641,20 @@ function pMove(x, y){
   if(!drag.active) return;
   const ddx = x - drag.px, ddy = y - drag.py;
   drag.px = x; drag.py = y;
-  // 10px threshold — generous enough to avoid accidental drag on tap
   if(Math.abs(x-drag.sx) > 10 || Math.abs(y-drag.sy) > 10) drag.moved = true;
   if(!drag.moved) return;
 
   if(drag.mode === 'card'){
-    // Move the individual card in world space
     const c = cards[drag.cardI];
     c.wx += ddx; c.wy += ddy;
 
-  } else if(drag.mode === 'tap'){
-    // Card body dragged far enough → upgrade to pan
+  } else if(drag.mode === 'open'){
+    // Dragging far from text zone → upgrade to pan (re-anchor to avoid jump)
     drag.mode = 'pan';
-    // Re-anchor so pan starts from the current real camera position (no jump)
     drag.cx = camX; drag.cy = camY; drag.sx = x; drag.sy = y;
 
   } else {
-    // Pan camera + record velocity for fling
+    // pan
     vbuf.x.push(-ddx); if(vbuf.x.length>5) vbuf.x.shift();
     vbuf.y.push(-ddy); if(vbuf.y.length>5) vbuf.y.shift();
     velX = vbuf.x.reduce((a,b)=>a+b,0) / vbuf.x.length;
@@ -662,22 +667,24 @@ function pMove(x, y){
 function pEnd(){
   drag.active = false;
   sp.classList.remove('drag');
-  if(drag.mode === 'pan' && drag.moved){
-    velX *= 2.6; velY *= 2.6;  // fling only after real pan
+  if(drag.mode === 'pan' && drag.moved) velX*=2.6, velY*=2.6;
+
+  if(!drag.moved){
+    // ── single tap logic by zone ────────────────────────────────────────
+    if(drag.mode === 'open' && drag.cardI !== -1){
+      openCard(drag.cardI);       // text tap → always open
+    } else if(drag.mode === 'card' && drag.cardI !== -1){
+      openCard(drag.cardI);       // crow tap (no drag) → also opens
+    }
+    // pan tap on empty space → do nothing
   }
-  // Single tap (no real movement) → open card regardless of which part was tapped
-  if(!drag.moved && drag.tgt){
-    const ci = drag.mode === 'card' ? drag.cardI : getCI(drag.tgt);
-    if(ci !== -1) openCard(ci);
-  }
-  setTimeout(()=>{ drag.moved=false; drag.tgt=null; drag.cardI=-1; drag.mode='pan'; }, 20);
+  setTimeout(()=>{ drag.moved=false; drag.cardI=-1; drag.mode='pan'; }, 20);
 }
 
 sp.addEventListener('pointerdown', e=>{ pStart(e.clientX, e.clientY, e.target); });
 window.addEventListener('pointermove', e=>{ if(drag.active) pMove(e.clientX, e.clientY); });
 window.addEventListener('pointerup', pEnd);
 window.addEventListener('pointercancel', pEnd);
-
 document.getElementById('topnav').addEventListener('pointerdown',  e=>e.stopPropagation());
 document.getElementById('postarea').addEventListener('pointerdown', e=>e.stopPropagation());
 
@@ -690,23 +697,23 @@ function openCard(idx){
   document.getElementById('aflag').textContent = c.flag;
   document.getElementById('atext').textContent = c.text;
 
-  // Like button
   const lb = document.getElementById('alike');
   lb.textContent = `♡ \u00a0${c.likes}`;
   lb.className = 'abtn' + (c._liked ? ' on-like' : '');
 
-  // Save button
   const sv = document.getElementById('asave');
   sv.textContent = isSaved(c.id) ? '✦ \u00a0saved' : '✦ \u00a0save';
   sv.className = 'abtn' + (isSaved(c.id) ? ' on-save' : '');
 
-  // Comments
   loadComments(c.id);
-
   document.getElementById('overlay').classList.add('open');
+
+  // Push a state so hardware back closes the modal instead of exiting
+  history.pushState({drift:'modal'}, '');
 }
 
-function closeCard(){
+// Internal: closes modal UI without touching history (used by popstate handler)
+function _closeModal(){
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('acomments').innerHTML = '';
   document.getElementById('acin').value = '';
@@ -717,8 +724,31 @@ function closeCard(){
   });
 }
 
+// Called by the × button: close modal AND pop the history entry we pushed
+function closeCard(){
+  _closeModal();
+  history.back(); // pops {drift:'modal'} → fires popstate but openI already null → safe
+}
+
 document.getElementById('overlay').addEventListener('click', function(e){
   if(e.target===this) closeCard();
+});
+
+// ── HARDWARE BACK BUTTON (Android / browser back) ──────────────────────────
+// Stack: app always has at least one state. Navigating adds states.
+// One back: close modal OR go to home tab. Two backs from home: exit app.
+window.addEventListener('popstate', () => {
+  if(openI !== null){
+    // Back while modal open → close modal, stay on current tab
+    _closeModal();
+    return;
+  }
+  if(currentView !== 'home'){
+    // Back while on saved/mine tab → go to home feed
+    _setView('home');
+    return;
+  }
+  // Back on home with nothing open → let browser exit the app naturally
 });
 
 // ── COMMENTS ──────────────────────────────────────────────────────────────
@@ -900,7 +930,9 @@ async function pollNewCards(){
 }
 
 // ── VIEWS ─────────────────────────────────────────────────────────────────
-function showView(name){
+// Internal view setter — no history push (used by popstate + jumpToCard)
+function _setView(name){
+  currentView = name;
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('nb-'+name).classList.add('active');
   document.getElementById('postarea').style.display = name==='home' ? 'flex' : 'none';
@@ -908,6 +940,19 @@ function showView(name){
   document.getElementById('view-mine').classList.toggle('open',  name==='mine');
   if(name==='saved') loadSavedView();
   if(name==='mine')  loadMineView();
+}
+
+// Public — called by nav buttons onclick; pushes history so back returns here
+function showView(name){
+  const wasHome = currentView === 'home';
+  _setView(name);
+  if(name !== 'home'){
+    // Push a state so back button returns to home
+    history.pushState({drift: name}, '');
+  } else if(!wasHome){
+    // User tapped Home tab while on saved/mine → pop back (same as back button)
+    history.back();
+  }
 }
 
 async function fetchBatch(ids){
@@ -945,12 +990,12 @@ async function loadMineView(){
 }
 
 function jumpToCard(id){
-  showView('home');
+  _setView('home');   // go home without pushing extra history entry
   const idx = cards.findIndex(c=>c.id===String(id));
   if(idx!==-1){
     camX = cards[idx].wx;
     camY = cards[idx].wy;
-    prevCamX = camX; prevCamY = camY; // prevent star jump on teleport
+    prevCamX = camX; prevCamY = camY;
     setTimeout(()=>openCard(idx), 250);
   }
 }
@@ -997,12 +1042,15 @@ window.addEventListener('resize', ()=>{
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async ()=>{
-  getUserId();   // ← assign persistent anonymous id on first load
+  // Set base history state — ensures popstate always has a state to land on
+  history.replaceState({drift:'home'}, '');
+
+  getUserId();
   initStars();
   loop();
-  setTimeout(hideSplash, 3500); // fallback if server slow
+  setTimeout(hideSplash, 3500);
   await detectFlag();
-  buildAlias();  // ← generate LK-8042 style code once, after flag is known
+  buildAlias();
   await loadRealCards();
   pollTimer = setInterval(pollNewCards, 10000);
 })();
