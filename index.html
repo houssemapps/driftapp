@@ -143,26 +143,22 @@ body{
 /* ── MODAL ───────────────────────────────────────────────────────────── */
 #overlay{
   position:fixed;inset:0;z-index:100;
-  background:rgba(0,1,14,0.9);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  display:none;align-items:flex-end;justify-content:center;
-  padding-bottom:0;
+  background:rgba(0,1,14,0.88);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+  opacity:0;pointer-events:none;
+  transition:opacity .22s ease;
 }
-#overlay.open{display:flex}
+#overlay.open{opacity:1;pointer-events:auto}
 #acard{
   background:rgba(5,7,22,0.98);
-  border:1px solid rgba(80,110,255,0.18);
-  border-radius:24px 24px 0 0;
-  padding:22px 20px 36px;
-  width:100%;max-width:440px;
+  border:1px solid rgba(80,110,255,0.2);
+  border-radius:20px;
+  padding:24px 20px 28px;
+  width:min(460px,100%);
   max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   position:relative;
-}
-/* drag handle */
-#acard::before{
-  content:'';display:block;width:36px;height:4px;
-  background:rgba(80,110,255,0.2);border-radius:2px;
-  margin:0 auto 18px;
 }
 #aclose{
   position:absolute;top:18px;right:16px;
@@ -665,18 +661,17 @@ function pMove(x, y){
 }
 
 function pEnd(){
+  if(!drag.active) return;   // guard: pointercancel can fire after pointerup on Android
   drag.active = false;
   sp.classList.remove('drag');
   if(drag.mode === 'pan' && drag.moved) velX*=2.6, velY*=2.6;
 
   if(!drag.moved){
-    // ── single tap logic by zone ────────────────────────────────────────
     if(drag.mode === 'open' && drag.cardI !== -1){
-      openCard(drag.cardI);       // text tap → always open
+      openCard(drag.cardI);
     } else if(drag.mode === 'card' && drag.cardI !== -1){
-      openCard(drag.cardI);       // crow tap (no drag) → also opens
+      openCard(drag.cardI);
     }
-    // pan tap on empty space → do nothing
   }
   setTimeout(()=>{ drag.moved=false; drag.cardI=-1; drag.mode='pan'; }, 20);
 }
@@ -691,6 +686,7 @@ document.getElementById('postarea').addEventListener('pointerdown', e=>e.stopPro
 // ── OPEN CARD MODAL ────────────────────────────────────────────────────────
 function openCard(idx){
   if(idx < 0 || idx >= cards.length) return;
+  if(openI !== null) return;   // already open — ignore double-fire
   openI = idx;
   const c = cards[idx];
 
@@ -730,8 +726,13 @@ function closeCard(){
   history.back(); // pops {drift:'modal'} → fires popstate but openI already null → safe
 }
 
-document.getElementById('overlay').addEventListener('click', function(e){
-  if(e.target===this) closeCard();
+// Use pointerdown (not click) to close overlay — ghost clicks on Android
+// are synthetic `click` events, NOT real pointerdown events, so this is immune
+document.getElementById('overlay').addEventListener('pointerdown', function(e){
+  if(e.target === this){
+    e.stopPropagation();
+    closeCard();
+  }
 });
 
 // ── HARDWARE BACK BUTTON (Android / browser back) ──────────────────────────
