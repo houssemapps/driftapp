@@ -64,14 +64,13 @@ body{
 
 /* card drag bar */
 .crow{
-  display:flex;align-items:center;gap:5px;margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;margin-bottom:6px;
   cursor:grab;border-radius:8px;padding:2px 4px 2px 2px;margin:-2px -4px 4px -2px;
   transition:background .18s;
 }
 .crow:hover{background:rgba(70,100,255,0.08)}
 .crow:active{cursor:grabbing}
-.cflag{font-size:11.5px;letter-spacing:.4px;font-weight:500;font-variant-numeric:tabular-nums}
-.cid{font-size:9px;font-family:monospace;letter-spacing:1.5px;color:rgba(90,118,255,0.4)}
+.cflag{font-size:12px;letter-spacing:.5px;font-weight:600;font-variant-numeric:tabular-nums;color:#b0badc}
 .cdrag{margin-left:auto;font-size:9px;color:rgba(90,118,255,0.18);letter-spacing:1px;
   user-select:none;transition:color .18s}
 .crow:hover .cdrag{color:rgba(90,118,255,0.45)}
@@ -431,10 +430,8 @@ function esc(s){
 }
 
 function mkHtml(c){
-  const shortId = String(c.id).slice(-4);
   return `<div class="crow">
     <span class="cflag">${c.flag}</span>
-    <span class="cid">#${shortId}</span>
     <span class="cdrag">⠿⠿</span>
   </div>
   <div class="ctxt">${esc(c.text)}</div>
@@ -445,17 +442,53 @@ function mkHtml(c){
   </div>`;
 }
 
+// ── FIBONACCI RING LAYOUT ──────────────────────────────────────────────────
+// Rings: 1,2,3,5,8,13,21,34… cards each. Dense near center, sparse outward.
+const FIB      = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+const R_FIRST  = 90;   // radius of innermost ring (pixels)
+const R_RATIO  = 1.52; // ring-to-ring ratio (< φ keeps things tighter)
+const _ringOff = FIB.map(() => Math.random() * Math.PI * 2); // random ring rotation
+let _ring = 0, _ringN = 0; // which ring / slot we're filling
+
+function nextRingPos(){
+  // Advance ring if current is full
+  while(_ring < FIB.length - 1 && _ringN >= FIB[_ring]){
+    _ring++; _ringN = 0;
+  }
+  const ring  = _ring;
+  const slot  = _ringN++;
+  const total = FIB[ring];
+  const r     = R_FIRST * Math.pow(R_RATIO, ring);
+  // Slight jitter so cards don't sit on a perfect geometric grid
+  const jitterR = (Math.random()-.5) * r * (0.04 + ring * 0.025);
+  const jitterA = (Math.random()-.5) * (0.08 + ring * 0.02);
+  const angle   = _ringOff[ring] + (slot / total) * Math.PI * 2 + jitterA;
+  return {
+    wx: (r + jitterR) * Math.cos(angle),
+    wy: (r + jitterR) * Math.sin(angle)
+  };
+}
+
 // ── SPAWN CARD ─────────────────────────────────────────────────────────────
-function spawnCard(d){
+function spawnCard(d, useRing = true){
+  let wx, wy;
+  if(useRing){
+    const pos = nextRingPos();
+    wx = pos.wx; wy = pos.wy;
+  } else {
+    // New card YOU just posted → appear near current camera view
+    wx = camX + (Math.random()-.5) * 220;
+    wy = camY + (Math.random()-.5) * 220;
+  }
+
   const c = {
     id:    String(d.id),
     flag:  d.flag  || '🌍',
     text:  d.text,
     likes: d.likes || 0,
-    wx:   (Math.random()-.5) * WORLD,
-    wy:   (Math.random()-.5) * WORLD,
-    vx:   (Math.random()-.5) * .22,
-    vy:   (Math.random()-.5) * .22,
+    wx, wy,
+    vx:   (Math.random()-.5) * .18,
+    vy:   (Math.random()-.5) * .18,
     z:    .75 + Math.random() * .65,
     el:   null,
     _liked: false
@@ -553,10 +586,10 @@ function loop(){
 // ── DRAG / PAN ─────────────────────────────────────────────────────────────
 const sp = document.getElementById('space');
 
-const drag = {active:false, moved:false, sx:0, sy:0, cx:0, cy:0, px:0, py:0, tgt:null, cardI:-1};
+// mode: 'pan' = camera pan | 'card' = drag card via crow | 'tap' = card body tap → open
+const drag = {active:false, moved:false, mode:'pan', sx:0, sy:0, cx:0, cy:0, px:0, py:0, tgt:null, cardI:-1};
 const vbuf = {x:[], y:[]};
 
-// Walk up DOM to find which card index an element belongs to
 function getCI(el){
   let n = el;
   while(n && n !== sp){
@@ -567,7 +600,6 @@ function getCI(el){
   return -1;
 }
 
-// Returns true if el is .crow or a descendant of .crow (drag handle)
 function isOnCrow(el){
   let n = el;
   while(n && n !== sp){
@@ -583,25 +615,41 @@ function pStart(x, y, tgt){
   drag.sx=x; drag.sy=y; drag.cx=camX; drag.cy=camY;
   drag.px=x; drag.py=y; drag.tgt=tgt;
   vbuf.x=[]; vbuf.y=[]; velX=0; velY=0;
-  // If touch starts on .crow header → card-drag mode, else → world pan
-  drag.cardI = isOnCrow(tgt) ? getCI(tgt) : -1;
+
+  if(isOnCrow(tgt)){
+    drag.cardI = getCI(tgt);
+    drag.mode  = 'card';          // .crow grabbed → drag this card
+  } else if(getCI(tgt) !== -1){
+    drag.cardI = -1;
+    drag.mode  = 'tap';           // card body tapped → open on release
+  } else {
+    drag.cardI = -1;
+    drag.mode  = 'pan';           // empty space → pan
+  }
   sp.classList.add('drag');
 }
 
 function pMove(x, y){
   if(!drag.active) return;
   const ddx = x - drag.px, ddy = y - drag.py;
-  drag.px=x; drag.py=y;
-  if(Math.abs(x-drag.sx)>5 || Math.abs(y-drag.sy)>5) drag.moved=true;
+  drag.px = x; drag.py = y;
+  // 10px threshold — generous enough to avoid accidental drag on tap
+  if(Math.abs(x-drag.sx) > 10 || Math.abs(y-drag.sy) > 10) drag.moved = true;
   if(!drag.moved) return;
 
-  if(drag.cardI !== -1){
-    // ── CARD DRAG: move individual card in world space ──────────────────
+  if(drag.mode === 'card'){
+    // Move the individual card in world space
     const c = cards[drag.cardI];
-    c.wx += ddx;
-    c.wy += ddy;
+    c.wx += ddx; c.wy += ddy;
+
+  } else if(drag.mode === 'tap'){
+    // Card body dragged far enough → upgrade to pan
+    drag.mode = 'pan';
+    // Re-anchor so pan starts from the current real camera position (no jump)
+    drag.cx = camX; drag.cy = camY; drag.sx = x; drag.sy = y;
+
   } else {
-    // ── PAN: move camera with velocity buffer for fling ─────────────────
+    // Pan camera + record velocity for fling
     vbuf.x.push(-ddx); if(vbuf.x.length>5) vbuf.x.shift();
     vbuf.y.push(-ddy); if(vbuf.y.length>5) vbuf.y.shift();
     velX = vbuf.x.reduce((a,b)=>a+b,0) / vbuf.x.length;
@@ -614,21 +662,22 @@ function pMove(x, y){
 function pEnd(){
   drag.active = false;
   sp.classList.remove('drag');
-  if(drag.cardI === -1){
-    velX *= 2.6; velY *= 2.6; // fling camera only when panning
+  if(drag.mode === 'pan' && drag.moved){
+    velX *= 2.6; velY *= 2.6;  // fling only after real pan
   }
+  // Single tap (no real movement) → open card regardless of which part was tapped
   if(!drag.moved && drag.tgt){
-    const ci = getCI(drag.tgt);
+    const ci = drag.mode === 'card' ? drag.cardI : getCI(drag.tgt);
     if(ci !== -1) openCard(ci);
   }
-  setTimeout(()=>{ drag.moved=false; drag.tgt=null; drag.cardI=-1; }, 15);
+  setTimeout(()=>{ drag.moved=false; drag.tgt=null; drag.cardI=-1; drag.mode='pan'; }, 20);
 }
 
 sp.addEventListener('pointerdown', e=>{ pStart(e.clientX, e.clientY, e.target); });
 window.addEventListener('pointermove', e=>{ if(drag.active) pMove(e.clientX, e.clientY); });
 window.addEventListener('pointerup', pEnd);
+window.addEventListener('pointercancel', pEnd);
 
-// Prevent pan from starting on UI chrome
 document.getElementById('topnav').addEventListener('pointerdown',  e=>e.stopPropagation());
 document.getElementById('postarea').addEventListener('pointerdown', e=>e.stopPropagation());
 
@@ -808,8 +857,9 @@ async function postDrift(){
     if(r.ok){
       const d = await r.json();
       tin.value = ''; tin.style.height = 'auto';
-      const c = spawnCard(d);
-      camX = c.wx; camY = c.wy; // center on new card
+      const c = spawnCard(d, false);        // near camera, not ring layout
+      camX = c.wx; camY = c.wy;
+      prevCamX = camX; prevCamY = camY;     // prevent star jump on teleport
       addMine(String(d.id));
       document.getElementById('emptystate').style.display = 'none';
     } else {
@@ -825,7 +875,7 @@ async function loadRealCards(){
   try{
     const r    = await fetch('/cards');
     const data = await r.json();
-    data.forEach(spawnCard);
+    data.forEach(d => spawnCard(d, true));  // Fibonacci ring layout
     if(!data.length){
       document.getElementById('emptystate').style.display = 'flex';
     }
@@ -841,7 +891,7 @@ async function pollNewCards(){
     const data = await r.json();
     data.forEach(d=>{
       if(!cards.find(c=>c.id===String(d.id))){
-        spawnCard(d);
+        spawnCard(d, true);
         document.getElementById('emptystate').style.display = 'none';
       }
     });
