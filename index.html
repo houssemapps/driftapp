@@ -276,6 +276,129 @@ body{
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(80,110,255,0.2);border-radius:2px}
+
+/* ── SETTINGS CORNER ICON ────────────────────────────────────────────── */
+#settings-corner{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:rgba(80,110,255,0.28);
+  font-size:15px;cursor:pointer;padding:8px;border-radius:50%;
+  transition:color .2s,background .2s;
+}
+#settings-corner:hover{color:rgba(100,140,255,0.7);background:rgba(80,110,255,0.08)}
+#settings-corner.active{color:rgba(120,160,255,0.8)}
+
+/* ── ORBITS VIEW ─────────────────────────────────────────────────────── */
+#view-orbits{overflow:hidden;padding:0}
+#orbits-field{
+  position:relative;width:100%;height:100%;
+  background:transparent;
+}
+.orbit-node{
+  position:absolute;
+  display:flex;flex-direction:column;align-items:center;
+  cursor:pointer;
+  transform:translate(-50%,-50%);
+}
+.orbit-float{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:orbitFloat ease-in-out infinite;
+}
+.orbit-dot{
+  width:22px;height:22px;border-radius:50%;
+  transition:transform .25s,filter .25s;
+}
+.orbit-node:hover .orbit-dot{transform:scale(1.9);filter:brightness(1.4)}
+.orbit-node:active .orbit-dot{transform:scale(1.4)}
+.orbit-label-top{text-align:center;pointer-events:none;order:-1}
+.orbit-name{font-size:11.5px;color:rgba(170,190,255,0.88);font-weight:500;
+  letter-spacing:.5px;white-space:nowrap}
+.orbit-stats{font-size:9.5px;color:rgba(80,110,255,0.4);letter-spacing:.3px;
+  margin-top:3px;white-space:nowrap}
+@keyframes orbitFloat{
+  0%  {transform:translate(0,0)}
+  20% {transform:translate(4px,-7px)}
+  45% {transform:translate(-5px,-3px)}
+  70% {transform:translate(3px,6px)}
+  100%{transform:translate(0,0)}
+}
+
+/* ── ORBIT DETAIL (inner group view) ─────────────────────────────────── */
+#orbit-detail{
+  position:absolute;inset:0;z-index:5;
+  background:rgba(0,1,14,0.97);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  transform:translateX(105%);
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  padding-bottom:60px;
+}
+#orbit-detail.open{transform:translateX(0)}
+.orbit-detail-head{
+  display:flex;align-items:center;gap:10px;
+  padding:16px 18px 12px;
+  border-bottom:1px solid rgba(80,110,255,0.08);
+  position:sticky;top:0;background:rgba(0,1,14,0.97);z-index:2;
+}
+#orbit-back{
+  background:none;border:none;color:rgba(80,110,255,0.5);
+  font-size:18px;cursor:pointer;padding:4px 8px 4px 0;
+  transition:color .2s;
+}
+#orbit-back:hover{color:rgba(120,160,255,0.8)}
+.orbit-detail-title{font-size:14px;color:rgba(160,185,255,0.9);font-weight:500;letter-spacing:.5px}
+.orbit-detail-sub{font-size:10px;color:rgba(80,110,255,0.35);letter-spacing:.3px;margin-left:auto}
+#orbit-card-list{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.orbit-card-item{
+  background:rgba(5,8,25,0.7);border:1px solid rgba(80,110,255,0.1);
+  border-radius:14px;padding:12px 14px;cursor:pointer;
+  transition:border-color .2s;
+}
+.orbit-card-item:hover{border-color:rgba(80,110,255,0.3)}
+.orbit-card-flag{font-size:11px;color:#b0badc;font-weight:500;margin-bottom:6px;display:block}
+.orbit-card-text{font-size:12.5px;color:rgba(200,215,255,0.8);line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.orbit-card-meta{margin-top:8px;display:flex;gap:12px;font-size:10px;
+  color:rgba(120,160,255,0.35)}
+
+/* ── COMMENT ACTIONS (likes + replies) ───────────────────────────────── */
+.cmt-main{display:flex;gap:9px;align-items:flex-start}
+.cmt-acts{
+  display:flex;gap:6px;margin-top:4px;
+  padding-left:calc(9px + 1.2em);
+}
+.cmt-lb,.cmt-rb{
+  background:none;border:none;
+  color:rgba(70,100,200,0.3);font-size:10px;
+  cursor:pointer;padding:2px 6px 2px 0;
+  letter-spacing:.3px;transition:color .15s;
+}
+.cmt-lb:hover{color:rgba(120,160,255,0.7)}
+.cmt-lb.liked{color:rgba(140,180,255,0.85)}
+.cmt-rb:hover{color:rgba(120,160,255,0.6)}
+.cmt-reply-form{
+  display:none;gap:6px;align-items:center;
+  margin-top:6px;padding-left:calc(9px + 1.2em);
+}
+.cmt-reply-form.open{display:flex}
+.cmt-ri{
+  flex:1;background:rgba(20,30,70,0.5);
+  border:1px solid rgba(80,110,255,0.12);
+  border-radius:10px;padding:7px 10px;
+  font-size:11px;color:#9aafdc;outline:none;
+  font-family:inherit;
+}
+.cmt-rs{
+  background:rgba(80,110,255,0.14);border:none;
+  border-radius:8px;color:rgba(120,160,255,0.7);
+  font-size:12px;padding:6px 10px;cursor:pointer;
+}
+.cmt-replies{padding-left:calc(9px + 1.2em);margin-top:2px}
+.reply-row{
+  display:flex;gap:8px;padding:6px 0;
+  border-top:1px solid rgba(30,40,80,0.25);
+  font-size:11px;
+}
+.reply-row .cmt-flag{font-size:10px;color:rgba(130,155,220,0.6);flex-shrink:0;margin-top:1px}
+.reply-row .cmt-txt{color:rgba(180,200,240,0.7);line-height:1.5}
 </style>
 </head>
 <body>
@@ -290,12 +413,9 @@ body{
 
   <button class="nb active" id="nb-home" onclick="showView('home')" title="Space">
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
-      <circle cx="12" cy="12" r="9"/>
-      <circle cx="12" cy="12" r="3"/>
-      <line x1="12" y1="3" x2="12" y2="9"/>
-      <line x1="12" y1="15" x2="12" y2="21"/>
-      <line x1="3" y1="12" x2="9" y2="12"/>
-      <line x1="15" y1="12" x2="21" y2="12"/>
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+      <line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/>
+      <line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/>
     </svg>
     <div class="nb-dot"></div>
   </button>
@@ -315,13 +435,19 @@ body{
     <div class="nb-dot"></div>
   </button>
 
-  <button class="nb" id="nb-settings" onclick="showView('settings')" title="Settings">
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  <!-- Orbits tab — named "Signals" to fit Drift terminology -->
+  <button class="nb" id="nb-signals" onclick="showView('signals')" title="Signals">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+      <circle cx="12" cy="12" r="2"/>
+      <path d="M6.34 6.34a8 8 0 1 0 11.32 11.32"/>
+      <path d="M17.66 6.34a8 8 0 0 1 0 11.32"/>
+      <path d="M9.17 9.17a4 4 0 1 0 5.66 5.66"/>
     </svg>
     <div class="nb-dot"></div>
   </button>
+
+  <!-- Settings moved to corner icon -->
+  <button id="settings-corner" onclick="showView('settings')" title="Settings">⚙</button>
 
 </nav>
 
@@ -364,6 +490,23 @@ body{
       Tap 🌐 inside a card to translate.<br>
       Tap 🌐 again to see the original.
     </div>
+  </div>
+</div>
+
+<!-- ── SIGNALS (Orbits/Groups) ──────────────────────────────────────── -->
+<div class="sview" id="view-signals">
+  <div id="orbits-field">
+    <!-- orbit nodes injected by JS -->
+  </div>
+
+  <!-- Slides in when a Signal is tapped -->
+  <div id="orbit-detail">
+    <div class="orbit-detail-head">
+      <button id="orbit-back">←</button>
+      <span class="orbit-detail-title" id="orbit-detail-name"></span>
+      <span class="orbit-detail-sub" id="orbit-detail-stats"></span>
+    </div>
+    <div id="orbit-card-list"></div>
   </div>
 </div>
 
@@ -870,17 +1013,12 @@ document.getElementById('overlay').addEventListener('pointerdown', function(e){
 // Stack: app always has at least one state. Navigating adds states.
 // One back: close modal OR go to home tab. Two backs from home: exit app.
 window.addEventListener('popstate', () => {
-  if(openI !== null){
-    // Back while modal open → close modal, stay on current tab
-    _closeModal();
-    return;
+  // signal detail open → close it first
+  if(document.getElementById('orbit-detail').classList.contains('open')){
+    closeSignalDetail(); return;
   }
-  if(currentView !== 'home'){
-    // Back while on saved/mine tab → go to home feed
-    _setView('home');
-    return;
-  }
-  // Back on home with nothing open → let browser exit the app naturally
+  if(openI !== null){ _closeModal(); return; }
+  if(currentView !== 'home'){ _setView('home'); return; }
 });
 
 // ── COMMENTS ──────────────────────────────────────────────────────────────
@@ -891,7 +1029,6 @@ async function loadComments(cardId){
     const res  = await fetch(`/cards/${cardId}/comments`);
     const data = await res.json();
 
-    // Sync count to floating card footer
     if(openI !== null){
       const c = cards[openI];
       if(c && c.comments_count !== data.length){
@@ -904,14 +1041,63 @@ async function loadComments(cardId){
       box.innerHTML = '<div class="cmt-none">no echoes yet</div>';
       return;
     }
-    box.innerHTML = data.map(cm=>
-      `<div class="cmt-row">
-        <span class="cmt-flag">${cm.flag}</span>
-        <span class="cmt-txt">${esc(cm.text)}</span>
+    box.innerHTML = data.map((cm, idx)=>
+      `<div class="cmt-row" data-idx="${idx}">
+        <div class="cmt-main">
+          <span class="cmt-flag">${cm.flag}</span>
+          <span class="cmt-txt">${esc(cm.text)}</span>
+        </div>
+        <div class="cmt-acts">
+          <button class="cmt-lb" data-n="0">♡</button>
+          <button class="cmt-rb">↩ reply</button>
+        </div>
+        <div class="cmt-reply-form">
+          <input class="cmt-ri" placeholder="reply..." maxlength="150">
+          <button class="cmt-rs">↑</button>
+        </div>
+        <div class="cmt-replies"></div>
       </div>`
     ).join('');
   } catch(e){ box.innerHTML=''; }
 }
+
+// Comment interaction delegation (likes + replies — client-side for now)
+document.getElementById('acomments').addEventListener('click', e=>{
+  const lb = e.target.closest('.cmt-lb');
+  const rb = e.target.closest('.cmt-rb');
+  const rs = e.target.closest('.cmt-rs');
+
+  if(lb){
+    const liked = lb.classList.toggle('liked');
+    const n = parseInt(lb.dataset.n||'0') + (liked ? 1 : -1);
+    lb.dataset.n = n;
+    lb.textContent = n > 0 ? `♡ ${n}` : '♡';
+  }
+  if(rb){
+    const form = rb.closest('.cmt-row').querySelector('.cmt-reply-form');
+    const open = form.classList.toggle('open');
+    if(open) setTimeout(()=>form.querySelector('.cmt-ri').focus(), 50);
+  }
+  if(rs){
+    const form = rs.closest('.cmt-reply-form');
+    const txt  = form.querySelector('.cmt-ri').value.trim();
+    if(!txt) return;
+    const row  = form.closest('.cmt-row');
+    row.querySelector('.cmt-replies').insertAdjacentHTML('beforeend',
+      `<div class="reply-row">
+        <span class="cmt-flag">${getFlag()}</span>
+        <span class="cmt-txt">${esc(txt)}</span>
+      </div>`);
+    form.querySelector('.cmt-ri').value = '';
+    form.classList.remove('open');
+    // increment comment count locally (replies count as engagement)
+    if(openI !== null){
+      const c = cards[openI];
+      c.comments_count = (c.comments_count||0) + 1;
+      if(c.el) c.el.innerHTML = mkHtml(c);
+    }
+  }
+});
 
 document.getElementById('acsend').addEventListener('click', async ()=>{
   if(openI===null) return;
@@ -1080,15 +1266,24 @@ async function pollNewCards(){
 // Internal view setter — no history push (used by popstate + jumpToCard)
 function _setView(name){
   currentView = name;
+  // nav tab highlight — settings uses corner icon not a .nb button
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
-  document.getElementById('nb-'+name).classList.add('active');
+  const tabEl = document.getElementById('nb-'+name);
+  if(tabEl) tabEl.classList.add('active');
+  // corner settings icon highlight
+  document.getElementById('settings-corner').classList.toggle('active', name==='settings');
+  // postarea visibility
   document.getElementById('postarea').style.display = name==='home' ? 'flex' : 'none';
+  // views
   document.getElementById('view-saved').classList.toggle('open',    name==='saved');
   document.getElementById('view-mine').classList.toggle('open',     name==='mine');
   document.getElementById('view-settings').classList.toggle('open', name==='settings');
-  if(name==='saved')    loadSavedView();
-  if(name==='mine')     loadMineView();
+  document.getElementById('view-signals').classList.toggle('open',  name==='signals');
+  // loaders
+  if(name==='saved')   loadSavedView();
+  if(name==='mine')    loadMineView();
   if(name==='settings') initSettingsView();
+  if(name==='signals')  initSignalsView();
 }
 
 // Public — called by nav buttons onclick; pushes history so back returns here
@@ -1181,6 +1376,111 @@ async function detectFlag(){
     }
   } catch(e){}  // silent — retries next session if it fails
 }
+
+// ── SIGNALS (named "Signals" — rename freely later) ────────────────────────
+const SIGNALS = [
+  {name:'Midnight',  emoji:'🌑', followers:46200, x:0.50, y:0.38, r:[110,72,255], sz:22, dur:9.2},
+  {name:'Kepler',    emoji:'🔭', followers:23800, x:0.74, y:0.25, r:[68,148,255], sz:17, dur:11.5},
+  {name:'Static',    emoji:'🎵', followers:31400, x:0.26, y:0.62, r:[55,210,165], sz:19, dur:8.7},
+  {name:'Babel',     emoji:'🌍', followers:19200, x:0.64, y:0.64, r:[255,108,68], sz:15, dur:13.1},
+  {name:'Deepfield', emoji:'🔮', followers:11700, x:0.20, y:0.30, r:[195,68,255], sz:13, dur:10.4},
+];
+
+function fmtK(n){
+  return n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'') + 'k' : String(n);
+}
+
+let _signalsBuilt = false;
+
+function initSignalsView(){
+  if(_signalsBuilt) return;
+  _signalsBuilt = true;
+  const field = document.getElementById('orbits-field');
+  const H = window.innerHeight - NAV_H;
+
+  SIGNALS.forEach((g, i)=>{
+    const [r,gr,b] = g.r;
+    const node = document.createElement('div');
+    node.className = 'orbit-node';
+    node.style.left  = (g.x * 100) + '%';
+    node.style.top   = (g.y * (H / (window.innerHeight)) * 100) + '%';
+
+    const floater = document.createElement('div');
+    floater.className = 'orbit-float';
+    floater.style.animationDuration = g.dur + 's';
+    floater.style.animationDelay    = (-i * 2.1) + 's';
+
+    floater.innerHTML = `
+      <div class="orbit-label-top">
+        <div class="orbit-name">${g.emoji} ${g.name}</div>
+        <div class="orbit-stats">👥 ${fmtK(g.followers)}</div>
+      </div>
+      <div class="orbit-dot" style="
+        width:${g.sz}px;height:${g.sz}px;
+        background:rgba(${r},${gr},${b},0.82);
+        box-shadow:
+          0 0 18px 7px rgba(${r},${gr},${b},0.38),
+          0 0 42px 18px rgba(${r},${gr},${b},0.14),
+          0 0 80px 35px rgba(${r},${gr},${b},0.05)
+      "></div>`;
+
+    node.appendChild(floater);
+    node.addEventListener('pointerdown', e=>{
+      e.stopPropagation();
+      openSignal(g, i);
+    });
+    field.appendChild(node);
+  });
+}
+
+function openSignal(g, idx){
+  document.getElementById('orbit-detail-name').textContent = g.emoji + ' ' + g.name;
+  document.getElementById('orbit-detail-stats').textContent = '👥 ' + fmtK(g.followers) + ' drifters';
+
+  // Show random cards from existing pool (replace with real API filter later)
+  const sample = [...cards].sort(()=>Math.random()-0.5).slice(0, 15);
+  const list = document.getElementById('orbit-card-list');
+  list.innerHTML = sample.length ? sample.map((c,i)=>`
+    <div class="orbit-card-item" data-ci="${cards.indexOf(c)}">
+      <span class="orbit-card-flag">${c.flag}</span>
+      <div class="orbit-card-text">${esc(c.text)}</div>
+      <div class="orbit-card-meta">
+        <span>♡ ${c.likes}</span>
+        <span>💬 ${c.comments_count||0}</span>
+      </div>
+    </div>`).join('')
+  : '<div style="padding:30px;text-align:center;color:rgba(80,110,255,0.3);font-size:12px">no drifts yet · be first</div>';
+
+  // Tap card inside signal → open modal and return to feed
+  list.querySelectorAll('.orbit-card-item').forEach(el=>{
+    el.addEventListener('pointerdown', e=>{
+      e.stopPropagation();
+      const ci = parseInt(el.dataset.ci);
+      closeSignalDetail();
+      _setView('home');
+      setTimeout(()=>{
+        if(ci >= 0 && ci < cards.length){
+          camX = cards[ci].wx; camY = cards[ci].wy;
+          prevCamX = camX; prevCamY = camY;
+          openCard(ci);
+        }
+      }, 320);
+    });
+  });
+
+  document.getElementById('orbit-detail').classList.add('open');
+  history.pushState({drift:'signal-detail'}, '');
+}
+
+function closeSignalDetail(){
+  document.getElementById('orbit-detail').classList.remove('open');
+}
+
+document.getElementById('orbit-back').addEventListener('pointerdown', e=>{
+  e.stopPropagation();
+  closeSignalDetail();
+  history.back();
+});
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────
 function initSettingsView(){
