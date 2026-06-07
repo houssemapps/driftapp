@@ -79,7 +79,9 @@ body{
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
 .cdots{font-size:10px;color:rgba(90,118,255,0.3);margin-top:2px;letter-spacing:2px}
-.cfoot{margin-top:7px;display:flex;gap:10px;font-size:9.5px;color:rgba(80,112,255,0.28)}
+.cfoot{margin-top:7px;display:flex;align-items:center;gap:9px;font-size:10px}
+.cfoot-likes{color:rgba(145,195,255,0.8);letter-spacing:.3px}
+.cfoot-cmts{color:rgba(145,195,255,0.45);letter-spacing:.3px}
 
 /* ── SPLASH ──────────────────────────────────────────────────────────── */
 #splash{
@@ -160,17 +162,40 @@ body{
   max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   position:relative;
 }
-#aclose{
-  position:absolute;top:18px;right:16px;
-  background:rgba(80,110,255,0.08);border:none;
-  border-radius:50%;width:30px;height:30px;
-  color:#3a4a7a;font-size:14px;cursor:pointer;
+/* translate globe button (replaces close — overlay tap or back button closes) */
+#atranslate{
+  position:absolute;top:16px;right:16px;
+  background:rgba(80,110,255,0.07);border:1px solid rgba(80,110,255,0.14);
+  border-radius:50%;width:32px;height:32px;
+  font-size:15px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  transition:background 0.2s,color 0.2s;
+  transition:background .2s, opacity .2s, transform .15s;
+  user-select:none;
 }
-#aclose:hover{background:rgba(80,110,255,0.18);color:#7a8fff}
-#aflag{font-size:14px;margin-bottom:12px;display:block;letter-spacing:.6px;color:#7a8aaa;font-weight:500}
-#atext{font-size:15px;line-height:1.7;color:#c0c8e4;margin-bottom:20px}
+#atranslate:hover{background:rgba(80,110,255,0.18);transform:scale(1.08)}
+#atranslate.xlated{color:rgba(100,170,255,0.9);border-color:rgba(100,170,255,0.35)}
+#atrans-hint{
+  font-size:9.5px;color:rgba(80,110,255,0.3);letter-spacing:.5px;
+  text-align:center;margin-top:-14px;margin-bottom:16px;
+}
+#aflag{font-size:14px;margin-bottom:4px;display:block;letter-spacing:.6px;color:#7a8aaa;font-weight:500;padding-right:36px}
+#atext{font-size:15px;line-height:1.7;color:#c0c8e4;margin-bottom:20px;transition:opacity .2s}
+
+/* ── SETTINGS VIEW ──────────────────────────────────────────────────── */
+.setting-section{padding:0 4px 24px}
+.setting-label{font-size:10px;letter-spacing:1.4px;color:rgba(80,110,255,0.4);
+  text-transform:uppercase;margin-bottom:12px}
+.lang-toggle{display:flex;gap:8px}
+.lang-btn{
+  flex:1;padding:10px 0;border-radius:12px;border:1px solid rgba(80,110,255,0.14);
+  background:rgba(80,110,255,0.05);color:#3a4a7a;font-size:12px;
+  letter-spacing:1px;cursor:pointer;transition:all .18s;
+}
+.lang-btn.active{
+  background:rgba(80,110,255,0.18);border-color:rgba(80,110,255,0.45);
+  color:rgba(140,180,255,0.9);
+}
+.setting-divider{height:1px;background:rgba(80,110,255,0.08);margin:0 0 24px}
 
 /* comments */
 #acomments{margin-bottom:14px}
@@ -290,6 +315,14 @@ body{
     <div class="nb-dot"></div>
   </button>
 
+  <button class="nb" id="nb-settings" onclick="showView('settings')" title="Settings">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+    <div class="nb-dot"></div>
+  </button>
+
 </nav>
 
 <canvas id="canvas"></canvas>
@@ -311,10 +344,34 @@ body{
   <div id="mine-list"></div>
 </div>
 
+<div class="sview" id="view-settings">
+  <div class="sv-head">⚙ &nbsp;Settings</div>
+  <div class="setting-section">
+    <div class="setting-label">Translate cards to</div>
+    <div class="lang-toggle">
+      <button class="lang-btn" id="lang-en">English</button>
+      <button class="lang-btn" id="lang-fr">Français</button>
+      <button class="lang-btn" id="lang-ar">العربية</button>
+    </div>
+  </div>
+  <div class="setting-divider"></div>
+  <div class="setting-section">
+    <div class="setting-label">How to use</div>
+    <div style="font-size:12px;color:rgba(80,110,255,0.4);line-height:1.8">
+      Tap the text of any card to open it.<br>
+      Grab the header bar to drag cards.<br>
+      Pan the space from empty areas.<br>
+      Tap 🌐 inside a card to translate.<br>
+      Tap 🌐 again to see the original.
+    </div>
+  </div>
+</div>
+
 <div id="overlay">
   <div id="acard">
-    <button id="aclose" onclick="closeCard()">✕</button>
+    <button id="atranslate" title="Translate">🌐</button>
     <span id="aflag"></span>
+    <div id="atrans-hint"></div>
     <div id="atext"></div>
     <div id="acomments"></div>
     <div id="acform">
@@ -434,8 +491,9 @@ function mkHtml(c){
   <div class="ctxt">${esc(c.text)}</div>
   ${c.text.length>60?'<div class="cdots">···</div>':''}
   <div class="cfoot">
-    <span>♡ ${c.likes}</span>
-    <span style="margin-left:auto;color:rgba(70,105,255,.14)">tap</span>
+    <span class="cfoot-likes">♡ ${c.likes}</span>
+    <span class="cfoot-cmts">💬 ${c.comments_count||0}</span>
+    <span style="margin-left:auto;color:rgba(70,105,255,.1)">tap</span>
   </div>`;
 }
 
@@ -482,6 +540,7 @@ function spawnCard(d, useRing = true){
     flag:  d.flag  || '🌍',
     text:  d.text,
     likes: d.likes || 0,
+    comments_count: 0,
     wx, wy,
     vx:   (Math.random()-.5) * .18,
     vy:   (Math.random()-.5) * .18,
@@ -684,14 +743,29 @@ document.getElementById('topnav').addEventListener('pointerdown',  e=>e.stopProp
 document.getElementById('postarea').addEventListener('pointerdown', e=>e.stopPropagation());
 
 // ── OPEN CARD MODAL ────────────────────────────────────────────────────────
+// ── TRANSLATE STATE ────────────────────────────────────────────────────────
+let _xlState = {active: false, original: ''};
+
 function openCard(idx){
   if(idx < 0 || idx >= cards.length) return;
-  if(openI !== null) return;   // already open — ignore double-fire
+  if(openI !== null) return;
   openI = idx;
   const c = cards[idx];
 
   document.getElementById('aflag').textContent = c.flag;
   document.getElementById('atext').textContent = c.text;
+
+  // Reset translation state
+  _xlState = {active: false, original: ''};
+  const xlBtn = document.getElementById('atranslate');
+  xlBtn.textContent = '🌐';
+  xlBtn.classList.remove('xlated');
+  xlBtn.style.opacity = '1';
+
+  // Show hint only for non-English cards (rough heuristic: non-ASCII chars)
+  const hint = document.getElementById('atrans-hint');
+  hint.textContent = /[^\x00-\x7F]/.test(c.text) || detectNonLatin(c.text)
+    ? 'tap 🌐 to translate' : '';
 
   const lb = document.getElementById('alike');
   lb.textContent = `♡ \u00a0${c.likes}`;
@@ -703,10 +777,67 @@ function openCard(idx){
 
   loadComments(c.id);
   document.getElementById('overlay').classList.add('open');
-
-  // Push a state so hardware back closes the modal instead of exiting
   history.pushState({drift:'modal'}, '');
 }
+
+// Heuristic: is text likely a non-Latin language?
+function detectNonLatin(t){
+  const nonLatin = t.split('').filter(ch => ch.charCodeAt(0) > 127).length;
+  return nonLatin / t.length > 0.2;
+}
+
+// ── TRANSLATE BUTTON ───────────────────────────────────────────────────────
+document.getElementById('atranslate').addEventListener('pointerdown', async e=>{
+  e.stopPropagation();
+  if(openI === null) return;
+  const btn    = document.getElementById('atranslate');
+  const textEl = document.getElementById('atext');
+  const hint   = document.getElementById('atrans-hint');
+  const c      = cards[openI];
+
+  // Toggle back to original
+  if(_xlState.active){
+    textEl.textContent  = _xlState.original;
+    _xlState.active     = false;
+    btn.classList.remove('xlated');
+    btn.style.opacity   = '1';
+    hint.textContent    = 'tap 🌐 to translate';
+    return;
+  }
+
+  // Translate
+  _xlState.original   = textEl.textContent;
+  btn.textContent     = '⏳';
+  btn.style.opacity   = '0.5';
+  hint.textContent    = 'translating…';
+
+  const lang    = localStorage.getItem('drift_lang') || 'en';
+  const encoded = encodeURIComponent(c.text.slice(0, 500)); // API limit
+
+  try{
+    const r = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encoded}&langpair=autodetect|${lang}`
+    );
+    const d = await r.json();
+    const result = d?.responseData?.translatedText;
+
+    if(result && !result.toLowerCase().startsWith('please select')){
+      textEl.textContent  = result;
+      _xlState.active     = true;
+      btn.textContent     = '🌐';
+      btn.classList.add('xlated');
+      btn.style.opacity   = '0.5';
+      hint.textContent    = 'tap 🌐 to see original';
+    } else {
+      throw new Error('bad result');
+    }
+  } catch(e){
+    btn.textContent   = '🌐';
+    btn.style.opacity = '1';
+    hint.textContent  = 'translation unavailable';
+    setTimeout(()=>{ hint.textContent = ''; }, 2000);
+  }
+});
 
 // Internal: closes modal UI without touching history (used by popstate handler)
 function _closeModal(){
@@ -759,6 +890,16 @@ async function loadComments(cardId){
   try{
     const res  = await fetch(`/cards/${cardId}/comments`);
     const data = await res.json();
+
+    // Sync count to floating card footer
+    if(openI !== null){
+      const c = cards[openI];
+      if(c && c.comments_count !== data.length){
+        c.comments_count = data.length;
+        if(c.el) c.el.innerHTML = mkHtml(c);
+      }
+    }
+
     if(!data.length){
       box.innerHTML = '<div class="cmt-none">no echoes yet</div>';
       return;
@@ -783,7 +924,12 @@ document.getElementById('acsend').addEventListener('click', async ()=>{
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({text:txt, flag:getFlag()})
     });
-    if(r.ok){ document.getElementById('acin').value=''; loadComments(c.id); }
+    if(r.ok){
+      document.getElementById('acin').value='';
+      c.comments_count = (c.comments_count||0) + 1;
+      if(c.el) c.el.innerHTML = mkHtml(c);
+      loadComments(c.id);
+    }
   } catch(e){}
 });
 
@@ -937,10 +1083,12 @@ function _setView(name){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('nb-'+name).classList.add('active');
   document.getElementById('postarea').style.display = name==='home' ? 'flex' : 'none';
-  document.getElementById('view-saved').classList.toggle('open', name==='saved');
-  document.getElementById('view-mine').classList.toggle('open',  name==='mine');
-  if(name==='saved') loadSavedView();
-  if(name==='mine')  loadMineView();
+  document.getElementById('view-saved').classList.toggle('open',    name==='saved');
+  document.getElementById('view-mine').classList.toggle('open',     name==='mine');
+  document.getElementById('view-settings').classList.toggle('open', name==='settings');
+  if(name==='saved')    loadSavedView();
+  if(name==='mine')     loadMineView();
+  if(name==='settings') initSettingsView();
 }
 
 // Public — called by nav buttons onclick; pushes history so back returns here
@@ -1032,6 +1180,20 @@ async function detectFlag(){
       if(d.flag) localStorage.setItem('dfl', d.flag);
     }
   } catch(e){}  // silent — retries next session if it fails
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────
+function initSettingsView(){
+  const saved = localStorage.getItem('drift_lang') || 'en';
+  document.querySelectorAll('.lang-btn').forEach(btn=>{
+    const l = btn.id.replace('lang-','');
+    btn.classList.toggle('active', l === saved);
+    btn.onclick = ()=>{
+      localStorage.setItem('drift_lang', l);
+      document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+  });
 }
 
 // ── RESIZE ────────────────────────────────────────────────────────────────
